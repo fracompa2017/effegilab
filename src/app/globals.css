@@ -1,24 +1,52 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap");
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8f6f2;
+  --surface: #ffffff;
+  --foreground: #1e1810;
+  --text-secondary: #5c5048;
+  --rose: #e8b4b4;
+  --rose-accent: #d4918f;
+  --sage: #a8c4b0;
+  --sage-accent: #7ea890;
+  --lavender: #b8b0d4;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-surface: var(--surface);
+  --color-text-secondary: var(--text-secondary);
+  --color-rose: var(--rose);
+  --color-rose-accent: var(--rose-accent);
+  --color-sage: var(--sage);
+  --color-sage-accent: var(--sage-accent);
+  --color-lavender: var(--lavender);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+  font-family: "Jost", "Segoe UI", Helvetica, Arial, sans-serif;
+  font-weight: 400;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-serif {
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
