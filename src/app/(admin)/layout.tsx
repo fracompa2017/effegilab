@@ -17,7 +17,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const supabase = useMemo(() => createClient(), []);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-  const isLoginPage = pathname === "/admin/login";
+  const isLoginPage = pathname === "/admin/login" || pathname === "/login";
 
   useEffect(() => {
     let isMounted = true;
@@ -79,4 +79,3 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     </QueryProvider>
   );
 }
-
