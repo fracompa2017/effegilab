@@ -1,60 +1,117 @@
-# Effegi Lab Ecommerce
+# Effegi Lab
 
-Base iniziale del progetto ecommerce moderno costruito con:
+Ecommerce wedding stationery artigianale per Effegi Lab (Napoli): partecipazioni, kit cerimonia, tableaux e coordinati personalizzabili.
+
+## Stack tecnologico
 
 - Next.js (App Router) + TypeScript
 - Tailwind CSS
-- Supabase
-- Stripe
-- Vercel
+- Supabase (catalogo, ordini, page builder)
+- Stripe (checkout e webhook)
+- Zustand (carrello)
+- React Query
+- Cloudinary (media)
+- Resend (email)
+- dnd-kit (riordino drag & drop)
 
-## Requisiti
+## Setup locale
 
-- Node.js `>=20`
-- npm `>=10`
+1. Clona il repository:
+```bash
+git clone https://github.com/<USERNAME>/effegilab.git
+cd effegilab
+```
 
-## Installazione
-
-1. Installa le dipendenze:
-
+2. Installa dipendenze:
 ```bash
 npm install
 ```
 
-2. Crea il file `.env.local` partendo da `.env.example` e compila le chiavi.
+3. Crea e compila `.env.local`:
+```bash
+cp .env.example .env.local
+```
 
-## Sviluppo locale
-
+4. Avvia ambiente di sviluppo:
 ```bash
 npm run dev
 ```
 
-Apri [http://localhost:3000](http://localhost:3000).
+App disponibile su `http://localhost:3000`.
+
+## Struttura cartelle (principale)
+
+```text
+src/
+  app/
+    (shop)/                  # frontend pubblico
+    (admin)/admin/           # pannello admin
+    api/                     # checkout, webhook, upload Cloudinary
+  components/
+    shop/                    # navbar, footer, product card, carrello
+    admin/                   # dashboard, ordini, prodotti, categorie, coupon
+    page-builder/            # BlockRenderer + BlockEditor
+    ui/                      # componenti base
+  lib/
+    supabase/                # client/server auth + middleware helpers
+    stripe/                  # client/server stripe init
+    cart-store.ts            # Zustand cart state
+    utils.ts                 # helper comuni
+  types/
+    index.ts                 # tipi dominio ecommerce
+
+scripts/
+  seed-products.ts           # seed categorie/prodotti demo reali
+```
 
 ## Comandi utili
 
 ```bash
+npm run dev
 npm run lint
 npm run build
+npm run seed
 ```
 
-## Setup completato finora
+## Aggiungere prodotti (Admin Panel)
 
-- Bootstrap progetto Next.js
-- Librerie ecommerce principali installate
-- Config base Supabase (`src/lib/supabase/*`)
-- Middleware sessione Supabase (`middleware.ts`)
-- Template variabili ambiente (`.env.example`)
+1. Accedi a `/admin/login`.
+2. Vai in `Prodotti`.
+3. Clicca `+ Nuovo Prodotto`.
+4. Compila dati base (nome, slug, prezzo, categoria, collezione).
+5. Carica immagini (Cloudinary).
+6. Salva bozza o pubblica.
 
-## Prossimi passi
+## Deploy su Vercel
 
-1. Configurare `.env.local` con chiavi reali.
-2. Creare progetto Supabase e lanciare lo script SQL tabelle.
-3. Collegare repository a GitHub e deploy automatico su Vercel.
-4. Avviare sviluppo frontend catalogo + carrello.
+1. Importa repository su Vercel.
+2. Imposta tutte le variabili ambiente Production (vedi `VERCEL_ENV_CHECKLIST.md`).
+3. Deploy.
+4. Configura webhook Stripe:
+   - endpoint: `https://effegi-lab.it/api/webhook/stripe`
+   - aggiorna `STRIPE_WEBHOOK_SECRET`
+   - redeploy.
 
-## Riferimenti
+## Variabili ambiente richieste
 
-- [Next.js Docs](https://nextjs.org/docs)
-- [Supabase Docs](https://supabase.com/docs)
-- [Stripe Docs](https://docs.stripe.com/)
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+STRIPE_SECRET_KEY=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+RESEND_API_KEY=
+NEXT_PUBLIC_SITE_URL=
+```
+
+## Contatti progetto
+
+- Brand: Effegi Lab
+- Email: info@effegi-lab.it
+- Sito: https://effegi-lab.it
+- Booking: https://effegi-lab2.reservio.com/booking
+- WhatsApp post-ordine: canale assistenza Effegi Lab
