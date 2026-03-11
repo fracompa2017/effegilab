@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import { Footer } from "@/components/shop/Footer";
 import { Navbar } from "@/components/shop/Navbar";
 
@@ -9,10 +10,12 @@ type ShopLayoutProps = {
 
 export default function ShopLayout({ children }: ShopLayoutProps) {
   return (
-    <div className="min-h-screen bg-[#FDF8F0] text-slate-900">
-      <Navbar />
-      <main className="mx-auto w-full max-w-6xl px-4 py-10">{children}</main>
-      <Footer />
-    </div>
+    <QueryProvider>
+      <div className="min-h-screen bg-[#F8F6F2] text-[#1E1810]">
+        <Navbar />
+        <main className="mx-auto w-full max-w-7xl px-4 py-10">{children}</main>
+        <Footer />
+      </div>
+    </QueryProvider>
   );
 }
