@@ -1,6 +1,9 @@
 import Stripe from "stripe";
 
-let stripeServer: Stripe | null = null;
+declare global {
+  // eslint-disable-next-line no-var
+  var stripeServerSingleton: Stripe | undefined;
+}
 
 export function getStripeServer() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -9,9 +12,11 @@ export function getStripeServer() {
     throw new Error("Missing environment variable: STRIPE_SECRET_KEY");
   }
 
-  if (!stripeServer) {
-    stripeServer = new Stripe(secretKey);
+  if (!globalThis.stripeServerSingleton) {
+    globalThis.stripeServerSingleton = new Stripe(secretKey, {
+      typescript: true,
+    });
   }
 
-  return stripeServer;
+  return globalThis.stripeServerSingleton;
 }
