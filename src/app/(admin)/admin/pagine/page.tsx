@@ -1,13 +1,11 @@
-import { Sidebar } from "@/components/admin/Sidebar";
-
 export default function AdminPagesBuilderPage() {
   return (
-    <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-      <Sidebar />
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-3xl font-bold text-slate-900">Page Builder</h1>
-        <p className="mt-2 text-slate-600">Pagina in costruzione.</p>
-      </section>
-    </div>
+    <section className="rounded-2xl border border-black/7 bg-white p-6">
+      <h1 className="font-serif text-5xl text-[#1E1810]">Page Builder</h1>
+      <p className="mt-2 text-sm text-[#5C5048]">
+        Sezione in costruzione. Qui gestirai i blocchi pagina e il visual editor.
+      </p>
+    </section>
   );
 }
+
