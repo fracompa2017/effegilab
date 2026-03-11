@@ -520,7 +520,7 @@ export async function BlockRenderer({ blocks }: BlockRendererProps) {
   }
   const categoriesBySlug = new Map(categories.map((category) => [category.slug, category.id]));
 
-  let collections: Array<{ name: string; imageUrl?: string }> = [];
+  const collections: Array<{ name: string; imageUrl?: string }> = [];
   if (needsCollections) {
     const { data } = await supabase
       .from("products")
