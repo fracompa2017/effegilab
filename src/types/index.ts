@@ -1,75 +1,82 @@
-export type Product = {
+export type OrderStatus =
+  | "pending"
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
+
+export interface Product {
   id: string;
   name: string;
   slug: string;
-  description?: string;
-  price: number;
-  priceMin?: number;
-  priceMax?: number;
+  description: string | null;
+  price: number | null;
+  price_min: number | null;
+  price_max: number | null;
   images: string[];
-  categoryId?: string;
-  collection?: string;
-  isCustomizable: boolean;
-  hasVariants: boolean;
+  category_id: string | null;
+  collection: string | null;
+  is_customizable: boolean;
+  has_variants: boolean;
   stock: number;
-  isActive: boolean;
-};
+  is_active: boolean;
+  seo_title: string | null;
+  seo_description: string | null;
+  created_at: string;
+}
 
-export type Category = {
+export interface Category {
   id: string;
   name: string;
   slug: string;
-  description?: string;
-  parentId?: string;
-  imageUrl?: string;
-  sortOrder: number;
-};
+  description: string | null;
+  parent_id: string | null;
+  image_url: string | null;
+  sort_order: number;
+}
 
-export type OrderItem = {
-  productId: string;
-  name: string;
+export interface OrderItem {
+  product_id: string;
+  product_name: string;
   quantity: number;
   price: number;
-};
+  options: Record<string, string | number | boolean | null>;
+}
 
-export type Order = {
+export interface Order {
   id: string;
-  orderNumber: string;
-  customerEmail: string;
-  customerName: string;
-  customerPhone?: string;
+  order_number: string;
+  customer_email: string;
+  customer_name: string;
+  customer_phone: string | null;
   items: OrderItem[];
   total: number;
-  status: "pending" | "paid" | "processing" | "shipped" | "completed" | "cancelled";
-  customizationNotes?: string;
-  createdAt?: string;
-};
+  status: OrderStatus;
+  customization_notes: string | null;
+  shipping_address: Record<string, string | null> | null;
+  stripe_payment_id: string | null;
+  created_at: string;
+}
 
-export type CartItem = {
-  productId: string;
-  name: string;
+export interface CartItem {
+  product: Product;
   quantity: number;
-  price: number;
-  imageUrl?: string;
-};
+  selected_options: Record<string, string | number | boolean | null>;
+}
 
-export type PageBlockType = "hero" | "text" | "image";
-
-export type PageBlock = {
+export interface PageBlock {
   id: string;
-  type: PageBlockType;
-  title?: string;
-  text?: string;
-  imageUrl?: string;
-  backgroundColor?: string;
-};
+  type: string;
+  props: Record<string, unknown>;
+  order: number;
+}
 
-export type Coupon = {
+export interface Coupon {
   id: string;
   code: string;
-  discountType: "percentage" | "fixed";
-  discountValue: number;
-  minOrder?: number;
-  expiresAt?: string;
-  isActive: boolean;
-};
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  min_order: number | null;
+  expires_at: string | null;
+  is_active: boolean;
+}
