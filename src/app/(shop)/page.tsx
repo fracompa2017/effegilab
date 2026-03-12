@@ -6,7 +6,6 @@ import { HowItWorks } from "@/components/shop/HowItWorks";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { SocialProof } from "@/components/shop/SocialProof";
 import { TrustBar } from "@/components/shop/TrustBar";
-import { UrgencyBanner } from "@/components/shop/UrgencyBanner";
 import { createClient } from "@/lib/supabase/server";
 import type { PageBlock, Product } from "@/types";
 
@@ -121,12 +120,7 @@ export default async function HomePage() {
   const blocks = contentResponse.error ? [] : normalizeHomepageBlocks(contentResponse.data?.blocks);
 
   if (blocks.length > 0) {
-    return (
-      <div className="space-y-8">
-        <UrgencyBanner type="coupon" expiryDate={new Date("2026-12-31T23:59:59")} />
-        <BlockRenderer blocks={blocks} />
-      </div>
-    );
+    return <BlockRenderer blocks={blocks} />;
   }
 
   const bestsellers = products.slice(0, 8);
@@ -134,7 +128,6 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-10 pb-6">
-      <UrgencyBanner type="coupon" expiryDate={new Date("2026-12-31T23:59:59")} />
       <HeroSection />
       <TrustBar />
       <CategoryGrid title="Cosa stai cercando?" />
