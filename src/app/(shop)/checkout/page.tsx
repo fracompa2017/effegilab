@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ChevronDown, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { useCartStore } from "@/lib/cart-store";
 import { getStripeClient } from "@/lib/stripe/client";
-import { formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 
 type PaymentMethod = "card" | "cod";
 
@@ -22,6 +21,27 @@ type CheckoutResponse = {
 };
 
 const stripePromise = getStripeClient();
+const STANDARD_SHIPPING = 6.9;
+const FREE_SHIPPING_THRESHOLD = 150;
+
+function StepIndicator() {
+  const steps = ["Dati", "Spedizione", "Pagamento"];
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-[#E8DED2] bg-white p-4">
+      <div className="grid grid-cols-3 text-center text-xs font-medium uppercase tracking-[0.08em] text-[#7A6F66]">
+        {steps.map((step, index) => (
+          <p key={step}>
+            {index + 1} {step}
+          </p>
+        ))}
+      </div>
+      <div className="h-1 overflow-hidden rounded-full bg-[#EFE5DA]">
+        <div className="h-full w-full rounded-full bg-gradient-to-r from-[#D4918F] via-[#D4918F] to-[#7EA890]" />
+      </div>
+    </div>
+  );
+}
 
 function CheckoutForm() {
   const router = useRouter();
@@ -41,40 +61,45 @@ function CheckoutForm() {
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [couponInput, setCouponInput] = useState(couponCode ?? "");
+  const [couponInput, setCouponInput] = useState(couponCode ?? "LAB15");
   const [message, setMessage] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const [form, setForm] = useState({
-    customer_name: "",
-    customer_email: "",
-    customer_phone: "",
+    email: "",
+    firstName: "",
+    lastName: "",
+    phone: "",
     address: "",
     city: "",
     zip: "",
     province: "",
-    customization_notes: "",
+    notes: "",
   });
 
+  const shippingCost = total >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING;
+  const grandTotal = total + shippingCost;
+
   const canSubmit = useMemo(
-    () => items.length > 0 && form.customer_name && form.customer_email && form.customer_phone && form.address,
-    [items.length, form.customer_name, form.customer_email, form.customer_phone, form.address],
+    () => Boolean(items.length && form.email && form.firstName && form.lastName && form.phone && form.address),
+    [form.address, form.email, form.firstName, form.lastName, form.phone, items.length],
   );
 
-  async function handleApplyCoupon() {
+  function handleApplyCoupon() {
     const valid = applyCoupon(couponInput);
-    setMessage(valid ? "Coupon applicato: 15% di sconto." : "Coupon non valido.");
+    setMessage(valid ? "Coupon LAB15 applicato." : "Coupon non valido.");
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!canSubmit) {
-      setMessage("Compila i campi obbligatori per continuare.");
+      setMessage("Compila i campi obbligatori per proseguire.");
       return;
     }
 
-    setIsSubmitting(true);
     setMessage(null);
+    setIsSubmitting(true);
 
     try {
       const response = await fetch("/api/checkout", {
@@ -85,10 +110,10 @@ function CheckoutForm() {
           couponCode,
           items,
           customer: {
-            customer_name: form.customer_name,
-            customer_email: form.customer_email,
-            customer_phone: form.customer_phone,
-            customization_notes: form.customization_notes,
+            customer_name: `${form.firstName} ${form.lastName}`.trim(),
+            customer_email: form.email,
+            customer_phone: form.phone,
+            customization_notes: form.notes,
             shipping_address: {
               address: form.address,
               city: form.city,
@@ -103,16 +128,16 @@ function CheckoutForm() {
       const payload = (await response.json()) as CheckoutResponse;
 
       if (!response.ok || !payload.success) {
-        throw new Error(payload.error ?? "Errore durante il checkout.");
+        throw new Error(payload.error ?? "Errore checkout.");
       }
 
       if (!payload.orderNumber) {
-        throw new Error("Numero ordine non ricevuto.");
+        throw new Error("Numero ordine mancante.");
       }
 
       if (paymentMethod === "card") {
         if (!stripe || !elements || !payload.clientSecret) {
-          throw new Error("Stripe non inizializzato correttamente.");
+          throw new Error("Stripe non inizializzato.");
         }
 
         const card = elements.getElement(CardElement);
@@ -124,15 +149,15 @@ function CheckoutForm() {
           payment_method: {
             card,
             billing_details: {
-              name: form.customer_name,
-              email: form.customer_email,
-              phone: form.customer_phone,
+              name: `${form.firstName} ${form.lastName}`.trim(),
+              email: form.email,
+              phone: form.phone,
             },
           },
         });
 
         if (result.error) {
-          throw new Error(result.error.message ?? "Pagamento carta non riuscito.");
+          throw new Error(result.error.message ?? "Pagamento non riuscito.");
         }
       }
 
@@ -147,10 +172,13 @@ function CheckoutForm() {
 
   if (!items.length) {
     return (
-      <section className="rounded-3xl border border-dashed border-[#D7CEC1] bg-white p-10 text-center">
-        <h1 className="font-serif text-4xl text-[#1E1810]">Checkout</h1>
-        <p className="mt-3 text-[#5C5048]">Il carrello è vuoto, aggiungi prodotti prima di procedere.</p>
-        <Link href="/shop" className="mt-4 inline-flex rounded-full bg-[#D4918F] px-6 py-3 text-white">
+      <section className="rounded-2xl border border-dashed border-[#D8CEC1] bg-white p-6 text-center">
+        <h1 className="font-serif text-[34px] text-[#1E1810]">Checkout</h1>
+        <p className="mt-2 text-sm text-[#6F645A]">Il carrello è vuoto. Aggiungi prodotti prima di procedere.</p>
+        <Link
+          href="/shop"
+          className="mt-4 inline-flex min-h-12 items-center rounded-full bg-[#D4918F] px-6 text-sm font-medium text-white"
+        >
           Torna allo shop
         </Link>
       </section>
@@ -158,163 +186,197 @@ function CheckoutForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <section className="space-y-6 rounded-3xl border border-[#E7DFD4] bg-white p-6">
-        <div>
-          <h1 className="font-serif text-5xl text-[#1E1810]">Checkout</h1>
-          <p className="mt-2 text-[#5C5048]">
-            Completa i dati per ricevere la bozza grafica su WhatsApp dopo l&apos;ordine.
-          </p>
-        </div>
+    <form onSubmit={handleSubmit} className="grid gap-5 lg:grid-cols-[1fr_360px]">
+      <section className="space-y-5">
+        <StepIndicator />
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            id="customer_name"
-            label="Nome e cognome *"
-            value={form.customer_name}
-            onChange={(event) => setForm((prev) => ({ ...prev, customer_name: event.target.value }))}
-          />
-          <Input
-            id="customer_email"
+        <div className="space-y-4 rounded-2xl border border-[#E8DED2] bg-white p-4">
+          <h2 className="font-serif text-[30px] text-[#1E1810]">Dati cliente</h2>
+          <input
             type="email"
-            label="Email *"
-            value={form.customer_email}
-            onChange={(event) => setForm((prev) => ({ ...prev, customer_email: event.target.value }))}
+            required
+            value={form.email}
+            onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
+            placeholder="Email"
+            className="h-12 w-full rounded-xl border border-[#D7CEC1] px-4 text-base outline-none"
           />
-          <Input
-            id="customer_phone"
-            label="Telefono *"
-            value={form.customer_phone}
-            onChange={(event) => setForm((prev) => ({ ...prev, customer_phone: event.target.value }))}
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="text"
+              required
+              value={form.firstName}
+              onChange={(event) => setForm((prev) => ({ ...prev, firstName: event.target.value }))}
+              placeholder="Nome"
+              className="h-12 w-full rounded-xl border border-[#D7CEC1] px-4 text-base outline-none"
+            />
+            <input
+              type="text"
+              required
+              value={form.lastName}
+              onChange={(event) => setForm((prev) => ({ ...prev, lastName: event.target.value }))}
+              placeholder="Cognome"
+              className="h-12 w-full rounded-xl border border-[#D7CEC1] px-4 text-base outline-none"
+            />
+          </div>
+          <input
+            type="tel"
+            required
+            value={form.phone}
+            onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+            placeholder="Telefono (WhatsApp)"
+            className="h-12 w-full rounded-xl border border-[#D7CEC1] px-4 text-base outline-none"
           />
-          <Input
-            id="address"
-            label="Indirizzo *"
+          <input
+            type="text"
+            required
             value={form.address}
             onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
+            placeholder="Indirizzo"
+            className="h-12 w-full rounded-xl border border-[#D7CEC1] px-4 text-base outline-none"
           />
-          <Input
-            id="city"
-            label="Città"
-            value={form.city}
-            onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
-          />
-          <Input
-            id="zip"
-            label="CAP"
-            value={form.zip}
-            onChange={(event) => setForm((prev) => ({ ...prev, zip: event.target.value }))}
-          />
-          <Input
-            id="province"
-            label="Provincia"
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="text"
+              value={form.zip}
+              onChange={(event) => setForm((prev) => ({ ...prev, zip: event.target.value }))}
+              placeholder="CAP"
+              className="h-12 w-full rounded-xl border border-[#D7CEC1] px-4 text-base outline-none"
+            />
+            <input
+              type="text"
+              value={form.city}
+              onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
+              placeholder="Città"
+              className="h-12 w-full rounded-xl border border-[#D7CEC1] px-4 text-base outline-none"
+            />
+          </div>
+          <select
             value={form.province}
             onChange={(event) => setForm((prev) => ({ ...prev, province: event.target.value }))}
-          />
+            className="h-12 w-full rounded-xl border border-[#D7CEC1] px-4 text-base outline-none"
+          >
+            <option value="">Provincia</option>
+            <option value="NA">Napoli</option>
+            <option value="CE">Caserta</option>
+            <option value="SA">Salerno</option>
+            <option value="AV">Avellino</option>
+            <option value="BN">Benevento</option>
+          </select>
         </div>
 
-        <div className="space-y-2">
-          <label htmlFor="customization_notes" className="text-sm font-medium text-[#1E1810]">
-            Note personalizzazione prodotti
+        <div className="space-y-3 rounded-2xl border border-[#E8DED2] bg-white p-4">
+          <h2 className="font-serif text-[30px] text-[#1E1810]">Spedizione</h2>
+          <label className="flex min-h-12 items-center justify-between rounded-xl border border-[#E8DED2] px-3">
+            <span className="text-sm text-[#5C5048]">Standard 5-7gg</span>
+            <span className="text-sm font-medium text-[#1E1810]">{formatPrice(shippingCost)}</span>
           </label>
-          <textarea
-            id="customization_notes"
-            rows={4}
-            className="w-full rounded-2xl border border-[#D7CEC1] px-4 py-3 text-sm outline-none focus:border-[#D4918F]"
-            value={form.customization_notes}
-            onChange={(event) => setForm((prev) => ({ ...prev, customization_notes: event.target.value }))}
-            placeholder="Es. palette colori, stile calligrafia, dettagli evento..."
-          />
+          <div className="rounded-xl bg-[#F8F6F2] p-3 text-sm text-[#5C5048]">
+            {shippingCost === 0 ? "Spedizione gratuita attiva da 150€." : "Spedizione gratuita da 150€."}
+          </div>
         </div>
 
-        <div className="space-y-3 rounded-2xl border border-[#E7DFD4] bg-[#F8F6F2] p-4">
-          <p className="text-sm font-medium text-[#1E1810]">Metodo di pagamento</p>
-          <label className="flex items-center gap-2 text-sm text-[#5C5048]">
+        <div className="space-y-3 rounded-2xl border border-[#E8DED2] bg-white p-4">
+          <h2 className="font-serif text-[30px] text-[#1E1810]">Pagamento</h2>
+          <label className="flex min-h-12 items-center gap-3 rounded-xl border border-[#E8DED2] px-3 text-sm text-[#5C5048]">
             <input
               type="radio"
-              name="paymentMethod"
+              name="payment"
               checked={paymentMethod === "card"}
               onChange={() => setPaymentMethod("card")}
             />
-            Carta (Stripe)
+            Carta (Apple Pay / Google Pay se disponibili)
           </label>
-          <label className="flex items-center gap-2 text-sm text-[#5C5048]">
+          <label className="flex min-h-12 items-center gap-3 rounded-xl border border-[#E8DED2] px-3 text-sm text-[#5C5048]">
             <input
               type="radio"
-              name="paymentMethod"
+              name="payment"
               checked={paymentMethod === "cod"}
               onChange={() => setPaymentMethod("cod")}
             />
-            Contrassegno (pagamento alla consegna)
+            Contrassegno
           </label>
           {paymentMethod === "card" ? (
-            <div className="rounded-xl border border-[#D7CEC1] bg-white p-3">
+            <div className="rounded-xl border border-[#D7CEC1] p-3">
               <CardElement options={{ hidePostalCode: true }} />
             </div>
           ) : null}
+          <div className="inline-flex items-center gap-2 text-xs text-[#6F645A]">
+            <Lock size={13} />
+            SSL attivo · Stripe sicuro
+          </div>
         </div>
 
-        {message ? <p className="text-sm text-[#8A5E5A]">{message}</p> : null}
-
-        <Button
-          type="submit"
-          className="w-full rounded-full bg-[#D4918F] py-3 text-base text-white hover:bg-[#c47f7d]"
-          disabled={!canSubmit || isSubmitting}
-        >
-          {isSubmitting ? "Elaborazione..." : "Conferma ordine"}
-        </Button>
-      </section>
-
-      <aside className="h-fit space-y-4 rounded-3xl border border-[#E7DFD4] bg-white p-5">
-        <h2 className="font-serif text-3xl text-[#1E1810]">Riepilogo ordine</h2>
-        <div className="space-y-2 text-sm text-[#5C5048]">
-          {items.map((item) => (
-            <div key={`${item.product.id}-${JSON.stringify(item.selected_options)}`} className="flex justify-between gap-3">
-              <span className="line-clamp-1">
-                {item.quantity} x {item.product.name}
-              </span>
-              <span>{formatPrice((item.product.price ?? 0) * item.quantity)}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-2 rounded-xl bg-[#F8F6F2] p-3">
-          <label htmlFor="coupon" className="text-xs font-medium uppercase tracking-[0.1em] text-[#5C5048]">
-            Coupon
-          </label>
+        <div className="space-y-2 rounded-2xl border border-[#E8DED2] bg-white p-4">
+          <h2 className="font-serif text-[28px] text-[#1E1810]">Coupon</h2>
           <div className="flex gap-2">
             <input
-              id="coupon"
-              className="h-10 flex-1 rounded-full border border-[#D7CEC1] bg-white px-4 text-sm outline-none focus:border-[#D4918F]"
+              type="text"
               value={couponInput}
               onChange={(event) => setCouponInput(event.target.value)}
+              className="h-12 flex-1 rounded-full border border-[#D7CEC1] px-4 text-base outline-none"
               placeholder="LAB15"
             />
-            <Button type="button" onClick={handleApplyCoupon}>
+            <button
+              type="button"
+              onClick={handleApplyCoupon}
+              className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#D4918F] px-5 text-sm font-medium text-white"
+            >
               Applica
-            </Button>
+            </button>
           </div>
           {couponCode ? (
-            <button type="button" className="text-xs underline" onClick={removeCoupon}>
+            <button type="button" onClick={removeCoupon} className="text-xs text-[#5C5048] underline">
               Rimuovi coupon ({couponCode})
             </button>
           ) : null}
         </div>
 
-        <div className="space-y-1 text-sm text-[#5C5048]">
-          <div className="flex justify-between">
-            <span>Subtotale</span>
-            <span>{formatPrice(subtotal)}</span>
+        {message ? <p className="text-sm text-[#A24D49]">{message}</p> : null}
+      </section>
+
+      <aside className="lg:sticky lg:top-24 lg:h-fit">
+        <section className="space-y-3 rounded-2xl border border-[#E8DED2] bg-white p-4">
+          <button
+            type="button"
+            onClick={() => setSummaryOpen((current) => !current)}
+            className="flex min-h-12 w-full items-center justify-between text-left"
+          >
+            <span className="font-serif text-[30px] text-[#1E1810]">Il tuo ordine ({items.length} articoli)</span>
+            <ChevronDown size={18} className={cn("transition lg:hidden", summaryOpen ? "rotate-180" : "")} />
+          </button>
+
+          <div className={cn("space-y-2", summaryOpen ? "block" : "hidden lg:block")}>
+            {items.map((item) => (
+              <div key={`${item.product.id}-${JSON.stringify(item.selected_options)}`} className="flex justify-between gap-3 text-sm text-[#5C5048]">
+                <span className="line-clamp-1">
+                  {item.quantity} × {item.product.name}
+                </span>
+                <span>{formatPrice((item.product.price ?? 0) * item.quantity)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between border-t border-[#EFE6DB] pt-2 text-sm text-[#5C5048]">
+              <span>Subtotale</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-[#5C5048]">
+              <span>Sconto</span>
+              <span>- {formatPrice(discount)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-[#5C5048]">
+              <span>Spedizione</span>
+              <span>{formatPrice(shippingCost)}</span>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span>Sconto</span>
-            <span>- {formatPrice(discount)}</span>
-          </div>
-          <div className="flex justify-between border-t border-[#E7DFD4] pt-2 text-base font-semibold text-[#1E1810]">
-            <span>Totale</span>
-            <span>{formatPrice(total)}</span>
-          </div>
-        </div>
+
+          <button
+            type="submit"
+            disabled={!canSubmit || isSubmitting}
+            className="flex min-h-14 w-full items-center justify-center rounded-full bg-[#D4918F] px-5 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmitting ? "Elaborazione..." : `Completa l'Ordine → ${formatPrice(grandTotal)}`}
+          </button>
+          <p className="text-center text-xs text-[#6F645A]">🔒 Pagamento sicuro Visa · Mastercard · PayPal</p>
+        </section>
       </aside>
     </form>
   );
