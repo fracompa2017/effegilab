@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack=false",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "ts-node --project tsconfig.json scripts/seed-products.ts"
+    "seed": "ts-node --project tsconfig.json scripts/seed-products.ts",
+    "import:woo": "ts-node --project tsconfig.json scripts/import-woocommerce.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
