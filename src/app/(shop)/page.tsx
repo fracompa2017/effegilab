@@ -6,6 +6,7 @@ import { HowItWorks } from "@/components/shop/HowItWorks";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { SocialProof } from "@/components/shop/SocialProof";
 import { TrustBar } from "@/components/shop/TrustBar";
+import { getProductsServer } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import type { PageBlock, Product } from "@/types";
 
@@ -34,18 +35,6 @@ function normalizeHomepageBlocks(blocks: unknown): PageBlock[] {
     .sort((a, b) => a.order - b.order);
 }
 
-async function getHomepageProducts(): Promise<Product[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("products")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(12);
-
-  return (data ?? []) as Product[];
-}
-
 function ConsultBanner() {
   return (
     <section className="rounded-2xl border border-[#E8DED2] bg-white p-6 md:p-8">
@@ -55,7 +44,8 @@ function ConsultBanner() {
           Progettiamo insieme il tuo coordinato perfetto
         </h2>
         <p className="max-w-2xl text-sm text-[#5C5048]">
-          Raccontaci stile, colori e dettagli del tuo evento: prepariamo una proposta dedicata con bozza gratuita.
+          Raccontaci stile, colori e dettagli del tuo evento: prepariamo una proposta dedicata con bozza
+          gratuita.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <a
@@ -95,18 +85,24 @@ function ProductGridSection({
         <h2 className="font-serif text-[32px] italic leading-none text-[#1E1810]">{title}</h2>
         {subtitle ? <p className="text-sm text-[#6E635A]">{subtitle}</p> : null}
       </header>
-      <div className="grid grid-cols-2 gap-3 px-4 sm:grid-cols-3 md:px-0 lg:grid-cols-4">
-        {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
+      {products.length ? (
+        <div className="grid grid-cols-2 gap-3 px-4 sm:grid-cols-3 md:px-0 lg:grid-cols-4">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-[#D7CEC1] bg-white p-5 text-sm text-[#5C5048]">
+          Nessun prodotto disponibile al momento.
+        </div>
+      )}
     </section>
   );
 }
 
 export default async function HomePage() {
   const supabase = await createClient();
-  const [contentResponse, products] = await Promise.all([
+  const [contentResponse, homeProductsResponse] = await Promise.all([
     supabase
       .from("page_content")
       .select("page, blocks")
@@ -114,7 +110,7 @@ export default async function HomePage() {
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    getHomepageProducts(),
+    getProductsServer({ page: 1, pageSize: 12, sort: "recenti" }),
   ]);
 
   const blocks = contentResponse.error ? [] : normalizeHomepageBlocks(contentResponse.data?.blocks);
@@ -123,7 +119,8 @@ export default async function HomePage() {
     return <BlockRenderer blocks={blocks} />;
   }
 
-  const bestsellers = products.slice(0, 8);
+  const products = homeProductsResponse.products;
+  const bestsellers = products.slice(4, 12).length ? products.slice(4, 12) : products.slice(0, 8);
   const latestProducts = products.slice(0, 4);
 
   return (
