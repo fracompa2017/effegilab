@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, Minus, Plus, Star } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronDown, Heart, Minus, Plus, Star } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/Button";
+import { ProductCard } from "@/components/shop/ProductCard";
 import { useCartStore } from "@/lib/cart-store";
 import { cloudinaryLoader } from "@/lib/cloudinary-loader";
 import { cn, formatPrice } from "@/lib/utils";
@@ -13,236 +13,302 @@ import type { Product } from "@/types";
 
 type ProductDetailClientProps = {
   product: Product;
+  relatedProducts: Product[];
 };
 
-const formatOptions = ["10x15 cm", "12x18 cm", "15x21 cm"];
-const paperOptions = ["Tintoretto Avorio", "Fedrigoni Texture", "Perlata Premium"];
+const minPieces = 30;
 
-function normalizeGallery(images: string[]): string[] {
-  const sanitized = images.filter(Boolean);
+const reviews = [
+  {
+    author: "Maria G.",
+    text: "Partecipazioni bellissime e supporto WhatsApp velocissimo. Bozza approvata al primo colpo.",
+  },
+  {
+    author: "Claudia R.",
+    text: "Lavoro artigianale preciso e confezione curata. Il risultato finale era ancora piu bello dal vivo.",
+  },
+  {
+    author: "Valentina M.",
+    text: "Servizio impeccabile e tempi rispettati. Consigliatissimo per chi vuole qualcosa di unico.",
+  },
+];
 
-  if (sanitized.length >= 5) {
-    return sanitized.slice(0, 5);
+const formatOptions = ["30 pezzi", "50 pezzi", "100 pezzi"];
+
+function normalizeImages(images: string[]) {
+  if (!images.length) {
+    return ["https://res.cloudinary.com/demo/image/upload/sample.jpg"];
   }
 
-  if (sanitized.length === 0) {
-    return Array.from({ length: 5 }, () => "");
-  }
-
-  const gallery = [...sanitized];
-  while (gallery.length < 5) {
-    gallery.push(sanitized[gallery.length % sanitized.length]);
-  }
-  return gallery;
+  return images;
 }
 
-export function ProductDetailClient({ product }: ProductDetailClientProps) {
+export function ProductDetailClient({ product, relatedProducts }: ProductDetailClientProps) {
   const addItem = useCartStore((state) => state.addItem);
   const toggleCart = useCartStore((state) => state.toggleCart);
 
-  const [selectedFormat, setSelectedFormat] = useState(formatOptions[0]);
-  const [selectedPaper, setSelectedPaper] = useState(paperOptions[0]);
-  const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [quantity, setQuantity] = useState(minPieces);
+  const [selectedPack, setSelectedPack] = useState(formatOptions[0]);
+  const [openCustomize, setOpenCustomize] = useState(true);
+  const [openDescription, setOpenDescription] = useState(false);
+  const [hideStickyCta, setHideStickyCta] = useState(false);
+  const [wishlist, setWishlist] = useState(false);
 
-  const gallery = useMemo(() => normalizeGallery(product.images ?? []), [product.images]);
+  const ctaSectionRef = useRef<HTMLDivElement | null>(null);
+  const gallery = useMemo(() => normalizeImages(product.images ?? []), [product.images]);
+  const unitPrice = product.price_min ?? product.price ?? 0;
+  const estimatedTotal = unitPrice * quantity;
 
-  const unitPrice = product.price ?? product.price_min ?? 0;
-  const fullPrice = product.price_max && product.price_max > unitPrice ? product.price_max : null;
-  const totalPrice = unitPrice * quantity;
+  useEffect(() => {
+    const target = ctaSectionRef.current;
+    if (!target) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHideStickyCta(entry.isIntersecting);
+      },
+      { threshold: 0.32 },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
 
   function handleAddToCart() {
     addItem({
       product,
       quantity,
       selected_options: {
-        formato: selectedFormat,
-        carta: selectedPaper,
+        formato: selectedPack,
       },
     });
     toggleCart(true);
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="space-y-4">
-        <div className="relative overflow-hidden rounded-3xl border border-[#E7DFD4] bg-white">
-          {gallery[selectedImageIndex] ? (
+    <div className="space-y-8 pb-24 md:pb-6">
+      <article className="grid gap-7 lg:grid-cols-[55%_45%]">
+        <section className="-mx-4 space-y-3 sm:mx-0">
+          <div className="relative aspect-square overflow-hidden bg-[#F3ECE3] sm:rounded-2xl">
             <Image
               src={gallery[selectedImageIndex]}
               alt={product.name}
               fill
               loader={cloudinaryLoader}
-              sizes="(max-width: 1024px) 100vw, 52vw"
-              className="aspect-square object-cover"
+              sizes="(max-width: 1024px) 100vw, 55vw"
+              className="object-cover"
+              style={{ touchAction: "manipulation" }}
             />
-          ) : (
-            <div className="flex aspect-square items-center justify-center text-sm text-[#5C5048]">
-              Anteprima prodotto
-            </div>
-          )}
-        </div>
-        <div className="grid grid-cols-5 gap-3">
-          {gallery.map((image, index) => (
+            {product.collection ? (
+              <span className="absolute left-3 top-3 rounded-full bg-[#1E1810]/75 px-3 py-1 text-[11px] uppercase tracking-[0.08em] text-white">
+                {product.collection}
+              </span>
+            ) : null}
             <button
-              key={`${image}-${index}`}
               type="button"
-              onClick={() => setSelectedImageIndex(index)}
-              className={cn(
-                "relative overflow-hidden rounded-xl border bg-white",
-                selectedImageIndex === index
-                  ? "border-[#D4918F] ring-2 ring-[#D4918F]/30"
-                  : "border-[#E7DFD4]",
-              )}
+              onClick={() => setWishlist((current) => !current)}
+              className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-[#5C5048]"
+              aria-label={wishlist ? "Rimuovi dalla wishlist" : "Aggiungi alla wishlist"}
             >
-              {image ? (
-                <Image
-                  src={image}
-                  alt={`${product.name} thumbnail ${index + 1}`}
-                  width={160}
-                  height={160}
-                  loader={cloudinaryLoader}
-                  className="aspect-square w-full object-cover"
-                />
-              ) : (
-                <div className="flex aspect-square items-center justify-center text-xs text-[#5C5048]">
-                  Img {index + 1}
-                </div>
-              )}
+              <Heart size={18} className={wishlist ? "fill-[#D4918F] text-[#D4918F]" : ""} />
             </button>
+          </div>
+
+          <div className="no-scrollbar overflow-x-auto px-4 sm:px-0">
+            <div className="flex w-max gap-2">
+              {gallery.map((image, index) => (
+                <button
+                  key={`${image}-${index}`}
+                  type="button"
+                  onClick={() => setSelectedImageIndex(index)}
+                  className={cn(
+                    "relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border",
+                    selectedImageIndex === index ? "border-[#D4918F]" : "border-[#E7DED2]",
+                  )}
+                >
+                  <Image
+                    src={image}
+                    alt={`${product.name} ${index + 1}`}
+                    fill
+                    loader={cloudinaryLoader}
+                    sizes="64px"
+                    className="object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-5 px-4 sm:px-0">
+          <div className="space-y-2">
+            <p className="text-[11px] uppercase tracking-[0.12em] text-[#D4918F]">
+              {product.collection ?? "Effegi Lab"}
+            </p>
+            <h1 className="font-serif text-[28px] leading-[1.1] text-[#1E1810]">{product.name}</h1>
+            <button
+              type="button"
+              onClick={() => {
+                const reviewsElement = document.getElementById("reviews-section");
+                reviewsElement?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className="inline-flex items-center gap-1 text-[12px] text-[#6F645A]"
+            >
+              <Star size={12} className="fill-[#E8B4B4] text-[#E8B4B4]" />
+              4.9 (23 recensioni)
+            </button>
+            <p className="text-[22px] font-bold text-[#1E1810]">da {formatPrice(unitPrice)}</p>
+            <p className="text-[12px] text-[#7A6F66]">per pezzo, min. {minPieces} pz</p>
+          </div>
+
+          <div className="border-t border-[#E8DED2] pt-4">
+            <button
+              type="button"
+              onClick={() => setOpenCustomize((current) => !current)}
+              className="flex w-full min-h-12 items-center justify-between rounded-xl bg-[#F8F6F2] px-4 text-left"
+            >
+              <span className="text-sm font-medium text-[#1E1810]">🎨 Come personalizzare</span>
+              <ChevronDown size={18} className={cn("transition", openCustomize ? "rotate-180" : "")} />
+            </button>
+
+            {openCustomize ? (
+              <div className="space-y-4 px-1 pb-1 pt-4">
+                <div>
+                  <p className="text-sm font-medium text-[#1E1810]">Step 1: Scegli la quantita</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <div className="inline-flex items-center rounded-full border border-[#D7CEC1] bg-white">
+                      <button
+                        type="button"
+                        onClick={() => setQuantity((current) => Math.max(minPieces, current - 1))}
+                        className="inline-flex h-12 w-12 items-center justify-center text-[#5C5048]"
+                        aria-label="Riduci quantita"
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <span className="min-w-10 text-center text-sm font-semibold">{quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => setQuantity((current) => current + 1)}
+                        className="inline-flex h-12 w-12 items-center justify-center text-[#5C5048]"
+                        aria-label="Aumenta quantita"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                    <select
+                      value={selectedPack}
+                      onChange={(event) => setSelectedPack(event.target.value)}
+                      className="h-12 rounded-full border border-[#D7CEC1] bg-white px-4 text-sm text-[#1E1810] outline-none"
+                    >
+                      {formatOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1 text-[13px] text-[#5C5048]">
+                  <p>Step 2: Dopo l&apos;ordine ti contatteremo su WhatsApp per concordare testi e grafica.</p>
+                  <p>Bozza inclusa • Max 3 revisioni • Prova di stampa.</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div ref={ctaSectionRef} className="space-y-3 rounded-2xl border border-[#E8DED2] bg-white p-4">
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#D4918F] px-6 text-sm font-medium text-white"
+            >
+              Personalizza
+            </button>
+            <p className="text-xs text-[#6F645A]">Totale stimato: {formatPrice(estimatedTotal)}</p>
+          </div>
+
+          <div className="rounded-2xl border border-[#E8DED2]">
+            <button
+              type="button"
+              onClick={() => setOpenDescription((current) => !current)}
+              className="flex w-full min-h-12 items-center justify-between px-4 text-left text-sm font-medium text-[#1E1810]"
+            >
+              Descrizione prodotto
+              <ChevronDown size={18} className={cn("transition", openDescription ? "rotate-180" : "")} />
+            </button>
+            {openDescription ? (
+              <p className="px-4 pb-4 text-sm text-[#5C5048]">
+                {product.description ??
+                  "Prodotto artigianale personalizzabile. Ogni ordine include bozza grafica e supporto dedicato."}
+              </p>
+            ) : null}
+          </div>
+        </section>
+      </article>
+
+      <section className="space-y-3">
+        <h2 className="font-serif text-[30px] italic text-[#1E1810]">Completa il tuo set</h2>
+        {relatedProducts.length ? (
+          <div className="no-scrollbar overflow-x-auto">
+            <div className="grid w-max grid-flow-col gap-3">
+              {relatedProducts.map((related) => (
+                <ProductCard key={related.id} product={related} className="w-[200px]" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-[#6F645A]">Altri prodotti della collezione in arrivo.</p>
+        )}
+      </section>
+
+      <section id="reviews-section" className="space-y-3 rounded-2xl border border-[#E8DED2] bg-white p-4 md:p-6">
+        <h2 className="font-serif text-[30px] italic text-[#1E1810]">Recensioni</h2>
+        <div className="space-y-3">
+          {reviews.map((review) => (
+            <article key={review.author} className="rounded-xl border border-[#EFE6DB] bg-[#FCFAF8] p-4">
+              <p className="text-sm text-[#F4B740]">⭐⭐⭐⭐⭐</p>
+              <p className="mt-2 text-sm italic text-[#5C5048]">“{review.text}”</p>
+              <p className="mt-2 text-xs font-medium text-[#1E1810]">{review.author}</p>
+            </article>
           ))}
         </div>
       </section>
 
-      <section className="space-y-6 rounded-3xl border border-[#E7DFD4] bg-white p-6 sm:p-8">
-        {product.collection ? (
-          <span className="inline-flex rounded-full border border-[#D4918F] bg-[#FDF4F3] px-3 py-1 text-xs font-medium uppercase tracking-[0.12em] text-[#5C5048]">
-            {product.collection}
-          </span>
-        ) : null}
-
-        <div className="space-y-3">
-          <h1 className="font-serif text-5xl leading-tight text-[#1E1810]">{product.name}</h1>
-          <div className="flex items-center gap-3">
-            <p className="text-2xl font-semibold text-[#1E1810]">{formatPrice(unitPrice)}</p>
-            {fullPrice ? (
-              <p className="text-lg text-[#8E837A] line-through">{formatPrice(fullPrice)}</p>
-            ) : null}
+      <div
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 border-t border-[#E8DED2] bg-white p-3 pb-[max(12px,env(safe-area-inset-bottom))] transition md:hidden",
+          hideStickyCta ? "pointer-events-none translate-y-full opacity-0" : "translate-y-0 opacity-100",
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-[0.08em] text-[#9A8E84]">Totale stimato</p>
+            <p className="text-sm font-semibold text-[#1E1810]">~{formatPrice(estimatedTotal)} ({quantity} pz)</p>
           </div>
-          <div className="flex items-center gap-1">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <Star key={index} size={15} className="fill-[#D4918F] text-[#D4918F]" />
-            ))}
-            <span className="ml-2 text-sm text-[#5C5048]">4.9 · 84 recensioni</span>
-          </div>
-          <p className="text-[#5C5048]">
-            {product.description ??
-              "Prodotto artigianale personalizzabile. Dopo l'ordine riceverai la bozza grafica via WhatsApp prima della produzione."}
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <p className="mb-2 text-sm font-medium text-[#1E1810]">Formato</p>
-            <div className="flex flex-wrap gap-2">
-              {formatOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setSelectedFormat(option)}
-                  className={cn(
-                    "rounded-full border px-4 py-2 text-sm",
-                    selectedFormat === option
-                      ? "border-[#D4918F] bg-[#FDF4F3] text-[#1E1810]"
-                      : "border-[#E7DFD4] bg-white text-[#5C5048]",
-                  )}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-sm font-medium text-[#1E1810]">Tipo carta</p>
-            <div className="flex flex-wrap gap-2">
-              {paperOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setSelectedPaper(option)}
-                  className={cn(
-                    "rounded-full border px-4 py-2 text-sm",
-                    selectedPaper === option
-                      ? "border-[#A8C4B0] bg-[#F2F8F4] text-[#1E1810]"
-                      : "border-[#E7DFD4] bg-white text-[#5C5048]",
-                  )}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-sm font-medium text-[#1E1810]">Quantità</p>
-            <div className="flex items-center gap-3">
-              <div className="inline-flex items-center rounded-full border border-[#D7CEC1] bg-[#F8F6F2]">
-                <button
-                  type="button"
-                  className="p-2 text-[#5C5048] hover:text-[#1E1810]"
-                  onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                  aria-label="Riduci quantità"
-                >
-                  <Minus size={16} />
-                </button>
-                <span className="min-w-10 text-center text-sm font-medium text-[#1E1810]">{quantity}</span>
-                <button
-                  type="button"
-                  className="p-2 text-[#5C5048] hover:text-[#1E1810]"
-                  onClick={() => setQuantity((prev) => prev + 1)}
-                  aria-label="Aumenta quantità"
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-              <p className="text-sm text-[#5C5048]">Totale: {formatPrice(totalPrice)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <Button
-            className="w-full rounded-full bg-[#D4918F] py-3 text-base text-white hover:bg-[#c47f7d]"
+          <button
+            type="button"
             onClick={handleAddToCart}
+            className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-[#D4918F] px-5 text-sm font-medium text-white"
           >
-            Personalizza e Aggiungi al Carrello
-          </Button>
-          <Button variant="outline" className="w-full rounded-full py-3 text-base">
-            <Heart size={16} className="mr-2" />
-            Aggiungi alla Wishlist
-          </Button>
+            Personalizza
+          </button>
         </div>
+      </div>
 
-        <div className="space-y-2 rounded-2xl bg-[#F8F6F2] p-4 text-sm text-[#5C5048]">
-          <p>
-            Dopo l&apos;ordine ti contattiamo su WhatsApp con il numero ordine per definire la
-            personalizzazione e inviare la bozza grafica.
-          </p>
-          <Link
-            href={`https://wa.me/393333333333?text=Ciao%20Effegi%20Lab,%20vorrei%20personalizzare%20${encodeURIComponent(product.name)}`}
-            className="font-medium text-[#1E1810] underline"
-          >
-            Contattaci su WhatsApp
-          </Link>
-        </div>
-
-        <div className="space-y-1 rounded-2xl border border-[#E7DFD4] p-4 text-sm text-[#5C5048]">
-          <p>Spedizione gratuita per ordini superiori a 150€.</p>
-          <p>Consegna stimata: 7 giorni lavorativi.</p>
-          <p>Coupon attivo: LAB15 (15% di sconto).</p>
-        </div>
-      </section>
+      <div className="rounded-xl bg-[#F8F6F2] p-4 text-sm text-[#5C5048]">
+        <p>Hai dubbi? Scrivici su WhatsApp con il numero ordine per ricevere supporto immediato.</p>
+        <Link
+          href="https://wa.me/393333333333"
+          target="_blank"
+          className="mt-2 inline-flex text-sm font-medium text-[#1E1810] underline"
+        >
+          Apri chat WhatsApp
+        </Link>
+      </div>
     </div>
   );
 }

@@ -22,6 +22,29 @@ async function getProductBySlug(slug: string): Promise<Product | null> {
   return (data as Product | null) ?? null;
 }
 
+async function getRelatedProducts(product: Product): Promise<Product[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("products")
+    .select("*")
+    .eq("is_active", true)
+    .neq("id", product.id)
+    .limit(8);
+
+  if (product.collection) {
+    query = query.eq("collection", product.collection);
+  } else if (product.category_id) {
+    query = query.eq("category_id", product.category_id);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false });
+  if (error) {
+    return [];
+  }
+
+  return (data ?? []) as Product[];
+}
+
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
@@ -58,10 +81,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
+  const relatedProducts = await getRelatedProducts(product);
+
   return (
     <div className="space-y-6">
-      <ProductDetailClient product={product} />
+      <ProductDetailClient product={product} relatedProducts={relatedProducts} />
     </div>
   );
 }
-
