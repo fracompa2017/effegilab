@@ -72,6 +72,8 @@ type CategoryMaps = {
   bySlug: Map<string, string>;
 };
 
+// Supabase JS generic schema typing is not configured in this repository.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAdminClient = ReturnType<typeof createClient<any>>;
 
 const BATCH_SIZE = 10;
@@ -130,11 +132,6 @@ function getWooConfig(): WooConfig {
     key: getRequiredEnv("WOOCOMMERCE_KEY"),
     secret: getRequiredEnv("WOOCOMMERCE_SECRET"),
   };
-}
-
-function getBasicAuthHeader(key: string, secret: string): string {
-  const auth = Buffer.from(`${key}:${secret}`).toString("base64");
-  return `Basic ${auth}`;
 }
 
 // Strip HTML tags dalla descrizione
@@ -239,23 +236,18 @@ function chunkArray<T>(values: T[], size: number): T[][] {
 }
 
 async function fetchWooCollection<T>(resource: "products" | "products/categories", config: WooConfig) {
-  const authHeader = getBasicAuthHeader(config.key, config.secret);
   const allItems: T[] = [];
   let page = 1;
   let totalPages: number | null = null;
 
   while (totalPages === null || page <= totalPages) {
     const url = new URL(`/wp-json/wc/v3/${resource}`, config.url);
+    url.searchParams.set("consumer_key", config.key);
+    url.searchParams.set("consumer_secret", config.secret);
     url.searchParams.set("per_page", String(WOO_PER_PAGE));
     url.searchParams.set("page", String(page));
 
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Authorization: authHeader,
-        Accept: "application/json",
-      },
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
       const errorPayload = await response.text();
