@@ -1,28 +1,17 @@
-function readEnv(name: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_KEY") {
-  const value = process.env[name];
-
-  if (value) {
-    return value;
-  }
-
-  // On browser runtime, avoid a hard crash and let the UI load with degraded behavior.
-  if (typeof window !== "undefined") {
-    console.error(`[supabase] Missing environment variable: ${name}`);
-    return name === "NEXT_PUBLIC_SUPABASE_URL"
-      ? "https://example.supabase.co"
-      : "public-anon-key-missing";
-  }
-
-  if (!value) {
-    throw new Error(`Missing environment variable: ${name}`);
-  }
-
-  return value;
-}
+const PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const PUBLIC_SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export function getSupabaseConfig() {
+  if (!PUBLIC_SUPABASE_URL) {
+    throw new Error("Missing environment variable: NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  if (!PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error("Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+
   return {
-    url: readEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    anonKey: readEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    url: PUBLIC_SUPABASE_URL,
+    anonKey: PUBLIC_SUPABASE_ANON_KEY,
   };
 }
