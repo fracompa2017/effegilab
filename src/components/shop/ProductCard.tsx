@@ -1,20 +1,59 @@
 "use client";
 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Heart, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, Star } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cloudinaryLoader } from "@/lib/cloudinary-loader";
+import { createClient } from "@/lib/supabase/client";
 import { cn, formatPrice } from "@/lib/utils";
 import type { Product } from "@/types";
+
+const WISHLIST_STORAGE_KEY = "effegi-wishlist";
 
 type ProductCardProps = {
   product: Product;
   className?: string;
+  showWishlistButton?: boolean;
 };
 
 type BadgeVariant = "NUOVO" | "BESTSELLER" | "-15%";
+
+function readGuestWishlist(): string[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(WISHLIST_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter((entry): entry is string => typeof entry === "string");
+  } catch {
+    return [];
+  }
+}
+
+function writeGuestWishlist(ids: string[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(ids));
+}
+
+function normalizeWishlistIds(ids: string[]) {
+  return Array.from(new Set(ids));
+}
 
 function productHash(value: string): number {
   return value.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -48,9 +87,142 @@ function getBadgeClasses(badge: BadgeVariant) {
   return "bg-[#D94B4B] text-white";
 }
 
-export function ProductCard({ product, className }: ProductCardProps) {
-  const [wishlist, setWishlist] = useState(false);
+function wishlistQueryKey(userId: string | null) {
+  return ["wishlist-ids", userId ?? "guest"] as const;
+}
+
+export function ProductCard({ product, className, showWishlistButton = true }: ProductCardProps) {
+  const queryClient = useQueryClient();
+  const supabase = useMemo(() => createClient(), []);
+
   const [showVariant, setShowVariant] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const bootstrap = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!mounted) {
+        return;
+      }
+
+      setUserId(user?.id ?? null);
+    };
+
+    void bootstrap();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id ?? null);
+      void queryClient.invalidateQueries({ queryKey: ["wishlist-ids"] });
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [queryClient, supabase]);
+
+  const idsQuery = useQuery({
+    queryKey: wishlistQueryKey(userId),
+    enabled: showWishlistButton,
+    queryFn: async () => {
+      if (!showWishlistButton) {
+        return [];
+      }
+
+      if (!userId) {
+        return readGuestWishlist();
+      }
+
+      const { data, error } = await supabase
+        .from("wishlists")
+        .select("product_id")
+        .eq("user_id", userId);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return normalizeWishlistIds((data ?? []).map((entry) => String(entry.product_id)));
+    },
+    staleTime: 20_000,
+    initialData: showWishlistButton ? readGuestWishlist() : [],
+  });
+
+  const wishlistIds = idsQuery.data ?? [];
+  const isWishlisted = wishlistIds.includes(product.id);
+
+  const toggleWishlistMutation = useMutation({
+    mutationFn: async (nextState: boolean) => {
+      const key = wishlistQueryKey(userId);
+      const currentIds = (queryClient.getQueryData<string[]>(key) ?? []).slice();
+      const nextIds = normalizeWishlistIds(
+        nextState
+          ? [...currentIds, product.id]
+          : currentIds.filter((entry) => entry !== product.id),
+      );
+
+      if (!userId) {
+        writeGuestWishlist(nextIds);
+        return nextIds;
+      }
+
+      if (nextState) {
+        const { error } = await supabase.from("wishlists").upsert(
+          {
+            user_id: userId,
+            product_id: product.id,
+          },
+          { onConflict: "user_id,product_id" },
+        );
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      } else {
+        const { error } = await supabase
+          .from("wishlists")
+          .delete()
+          .eq("user_id", userId)
+          .eq("product_id", product.id);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }
+
+      return nextIds;
+    },
+    onMutate: async (nextState) => {
+      const key = wishlistQueryKey(userId);
+      await queryClient.cancelQueries({ queryKey: key });
+
+      const previousIds = queryClient.getQueryData<string[]>(key) ?? [];
+      const optimisticIds = normalizeWishlistIds(
+        nextState
+          ? [...previousIds, product.id]
+          : previousIds.filter((entry) => entry !== product.id),
+      );
+
+      queryClient.setQueryData<string[]>(key, optimisticIds);
+
+      return { previousIds };
+    },
+    onError: (_error, _nextState, context) => {
+      const key = wishlistQueryKey(userId);
+      queryClient.setQueryData<string[]>(key, context?.previousIds ?? []);
+    },
+    onSuccess: (nextIds) => {
+      const key = wishlistQueryKey(userId);
+      queryClient.setQueryData<string[]>(key, nextIds);
+    },
+  });
 
   const mainImage = product.images?.[0] ?? "";
   const secondaryImage = product.images?.[1] ?? mainImage;
@@ -100,17 +272,20 @@ export function ProductCard({ product, className }: ProductCardProps) {
             </span>
           ) : null}
 
-          <button
-            type="button"
-            aria-label={wishlist ? "Rimuovi dalla wishlist" : "Aggiungi alla wishlist"}
-            onClick={(event) => {
-              event.preventDefault();
-              setWishlist((current) => !current);
-            }}
-            className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#5C5048]"
-          >
-            <Heart size={16} className={cn(wishlist ? "fill-[#D4918F] text-[#D4918F]" : "")} />
-          </button>
+          {showWishlistButton ? (
+            <button
+              type="button"
+              aria-label={isWishlisted ? "Rimuovi dalla wishlist" : "Aggiungi alla wishlist"}
+              onClick={(event) => {
+                event.preventDefault();
+                const nextState = !isWishlisted;
+                toggleWishlistMutation.mutate(nextState);
+              }}
+              className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#5C5048]"
+            >
+              <Heart size={16} className={cn(isWishlisted ? "fill-[#D4918F] text-[#D4918F]" : "")} />
+            </button>
+          ) : null}
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden items-center justify-center p-4 md:flex">
             <span className="translate-y-4 rounded-full bg-white/92 px-4 py-2 text-xs font-medium text-[#1E1810] opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
