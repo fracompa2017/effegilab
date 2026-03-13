@@ -3,9 +3,8 @@ import {
   getCategoriesServer,
   getCollectionsServer,
   getProductsServer,
-  parseShopFilters,
-  type ShopSearchParams,
-} from "@/lib/queries";
+} from "@/lib/server-queries";
+import { parseShopFilters, type ShopSearchParams } from "@/lib/queries";
 
 type ShopPageProps = {
   searchParams: {

@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import type { Category, Order, Product } from "@/types";
 
 export const SHOP_PAGE_SIZE = 24;
@@ -110,7 +109,7 @@ function normalizeProduct(row: ProductRow): Product {
   };
 }
 
-function normalizeOrder(order: Order): Order {
+export function normalizeOrder(order: Order): Order {
   return {
     ...order,
     total: asNumber(order.total, 0),
@@ -175,10 +174,17 @@ function parsePageSize(pageSize?: number): number {
   return Math.min(pageSize, 60);
 }
 
-function applySort(
-  query: ReturnType<SupabaseClient["from"]>["select"],
-  sort: ShopSort,
-): ReturnType<SupabaseClient["from"]>["select"] {
+type OrderableQuery<T> = {
+  order: (
+    column: string,
+    options?: {
+      ascending?: boolean;
+      nullsFirst?: boolean;
+    },
+  ) => T;
+};
+
+function applySort<T extends OrderableQuery<T>>(query: T, sort: ShopSort): T {
   switch (sort) {
     case "prezzo-asc":
       return query.order("price", { ascending: true, nullsFirst: false });
@@ -233,7 +239,7 @@ async function resolveCollectionName(
   return collection ?? null;
 }
 
-async function queryProducts(
+export async function queryProductsWithClient(
   supabase: SupabaseClient,
   filters: ShopFilters,
 ): Promise<ProductsQueryResult> {
@@ -304,30 +310,9 @@ export function parseShopFilters(searchParams: ShopSearchParams): ShopFilters {
   };
 }
 
-export async function getProductsServer(filters: ShopFilters): Promise<ProductsQueryResult> {
-  const supabase = await createServerClient();
-  return queryProducts(supabase, filters);
-}
-
 export async function getProductsClient(filters: ShopFilters): Promise<ProductsQueryResult> {
   const supabase = createBrowserClient();
-  return queryProducts(supabase, filters);
-}
-
-export async function getCategoriesServer(): Promise<Category[]> {
-  const supabase = await createServerClient();
-
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .order("sort_order", { ascending: true })
-    .order("name", { ascending: true });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []) as Category[];
+  return queryProductsWithClient(supabase, filters);
 }
 
 export async function getCategoriesClient(): Promise<Category[]> {
@@ -346,17 +331,12 @@ export async function getCategoriesClient(): Promise<Category[]> {
   return (data ?? []) as Category[];
 }
 
-export async function getCollectionsServer(): Promise<CollectionEntry[]> {
-  const supabase = await createServerClient();
-  return getCollectionsWithClient(supabase);
-}
-
 export async function getCollectionsClient(): Promise<CollectionEntry[]> {
   const supabase = createBrowserClient();
   return getCollectionsWithClient(supabase);
 }
 
-async function getCollectionsWithClient(supabase: SupabaseClient): Promise<CollectionEntry[]> {
+export async function getCollectionsWithClient(supabase: SupabaseClient): Promise<CollectionEntry[]> {
   const { data, error } = await supabase
     .from("products")
     .select("collection, images")
@@ -413,23 +393,6 @@ export async function getAccountOrdersByEmail(email: string): Promise<Order[]> {
   }
 
   return ((data ?? []) as Order[]).map(normalizeOrder);
-}
-
-export async function getAccountOrderById(id: string, email: string): Promise<Order | null> {
-  const supabase = await createServerClient();
-
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("id", id)
-    .eq("customer_email", email)
-    .maybeSingle();
-
-  if (error) {
-    return null;
-  }
-
-  return data ? normalizeOrder(data as Order) : null;
 }
 
 export async function getWishlistProductIds(userId: string): Promise<string[]> {

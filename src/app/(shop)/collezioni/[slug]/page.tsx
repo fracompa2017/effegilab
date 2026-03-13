@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ProductCard } from "@/components/shop/ProductCard";
-import { getCollectionsServer, getProductsServer } from "@/lib/queries";
+import { getCollectionsServer, getProductsServer } from "@/lib/server-queries";
 
 type CollectionPageProps = {
   params: Promise<{

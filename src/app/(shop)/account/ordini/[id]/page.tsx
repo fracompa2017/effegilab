@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { OrderStatusBadge } from "@/components/admin/OrderStatusBadge";
-import { getAccountOrderById } from "@/lib/queries";
+import { getAccountOrderById } from "@/lib/server-queries";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatPrice } from "@/lib/utils";
 import type { OrderStatus } from "@/types";

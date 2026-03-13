@@ -6,7 +6,7 @@ import { HowItWorks } from "@/components/shop/HowItWorks";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { SocialProof } from "@/components/shop/SocialProof";
 import { TrustBar } from "@/components/shop/TrustBar";
-import { getProductsServer } from "@/lib/queries";
+import { getProductsServer } from "@/lib/server-queries";
 import { createClient } from "@/lib/supabase/server";
 import type { PageBlock, Product } from "@/types";
 
