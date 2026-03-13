@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 
-function createServiceRoleClient() {
+export function createApiSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -23,7 +23,7 @@ export async function validateApiKey(request: NextRequest) {
     return false;
   }
 
-  const supabase = createServiceRoleClient();
+  const supabase = createApiSupabaseClient();
   if (!supabase) {
     return false;
   }
