@@ -4,6 +4,19 @@ import type Stripe from "stripe";
 
 import { getStripeServer } from "@/lib/stripe/server";
 
+type LogLevel = "info" | "warn" | "error";
+
+function logOrder(level: LogLevel, event: string, data: Record<string, unknown>) {
+  console.log(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level,
+      event,
+      ...data,
+    }),
+  );
+}
+
 function getAdminSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -21,25 +34,66 @@ function getAdminSupabaseClient() {
 }
 
 async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
-  const supabase = getAdminSupabaseClient();
-
-  await supabase
-    .from("orders")
-    .update({
-      status: "processing",
-    })
-    .eq("stripe_payment_id", paymentIntent.id);
+  await updateOrderStatus(paymentIntent.id, "processing", "payment_intent.succeeded");
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  const supabase = getAdminSupabaseClient();
+  await updateOrderStatus(paymentIntent.id, "cancelled", "payment_intent.payment_failed");
+}
 
-  await supabase
+async function updateOrderStatus(
+  paymentIntentId: string,
+  nextStatus: "processing" | "cancelled",
+  eventType: string,
+) {
+  const supabase = getAdminSupabaseClient();
+  const { data: order, error: readError } = await supabase
+    .from("orders")
+    .select("id,status")
+    .eq("stripe_payment_id", paymentIntentId)
+    .maybeSingle();
+
+  if (readError) {
+    logOrder("error", "webhook.order.read_failed", {
+      eventType,
+      paymentIntentId,
+      error: readError.message,
+    });
+    return;
+  }
+
+  if (!order?.id) {
+    logOrder("warn", "webhook.order.not_found", {
+      eventType,
+      paymentIntentId,
+    });
+    return;
+  }
+
+  const { error: updateError } = await supabase
     .from("orders")
     .update({
-      status: "cancelled",
+      status: nextStatus,
     })
-    .eq("stripe_payment_id", paymentIntent.id);
+    .eq("id", order.id);
+
+  if (updateError) {
+    logOrder("error", "webhook.order.update_failed", {
+      orderId: order.id,
+      eventType,
+      paymentIntentId,
+      error: updateError.message,
+    });
+    return;
+  }
+
+  logOrder("info", "order.status.updated", {
+    orderId: order.id,
+    paymentIntentId,
+    eventType,
+    previousStatus: order.status,
+    newStatus: nextStatus,
+  });
 }
 
 export async function POST(request: Request) {
@@ -55,6 +109,11 @@ export async function POST(request: Request) {
     const payload = await request.text();
 
     const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    const object = event.data.object as { id?: string };
+    logOrder("info", "webhook.received", {
+      type: event.type,
+      paymentIntentId: object?.id ?? null,
+    });
 
     switch (event.type) {
       case "payment_intent.succeeded":
@@ -69,6 +128,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
+    logOrder("error", "webhook.failed", {
+      error: error instanceof Error ? error.message : "Webhook error.",
+    });
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Webhook error.",
@@ -77,4 +139,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
