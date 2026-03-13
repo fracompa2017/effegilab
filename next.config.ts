@@ -36,6 +36,18 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "res.cloudinary.com",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "effegi-lab.it",
+      },
+      {
+        protocol: "https",
+        hostname: "www.effegi-lab.it",
+      },
     ],
   },
   async headers() {

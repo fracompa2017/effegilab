@@ -3,7 +3,6 @@ import Link from "next/link";
 import { BadgeCheck, Sparkles } from "lucide-react";
 
 import { ProductCard } from "@/components/shop/ProductCard";
-import { cloudinaryLoader } from "@/lib/cloudinary-loader";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import type { Category, PageBlock, Product } from "@/types";
@@ -233,7 +232,6 @@ function renderCollectionsBlock(
                   src={collection.imageUrl}
                   alt={collection.name}
                   fill
-                  loader={cloudinaryLoader}
                   sizes="220px"
                   className="object-cover opacity-15"
                 />
@@ -345,7 +343,6 @@ function renderTextImageBlock(block: PageBlock) {
               src={imageUrl}
               alt={title}
               fill
-              loader={cloudinaryLoader}
               sizes="(max-width: 1024px) 100vw, 45vw"
               className="object-cover"
             />
