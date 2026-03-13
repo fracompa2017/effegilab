@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, Clock3, Package, ShoppingBag, Wallet } from "lucide-react";
+import { BarChart3, Clock3, FolderTree, Package, ShoppingBag, Wallet } from "lucide-react";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -28,6 +28,7 @@ type DashboardData = {
   monthRevenue: number;
   revenueTrend: { trend: "up" | "down" | "neutral"; value: string };
   activeProducts: number;
+  totalCategories: number;
   pendingOrders: number;
   latestOrders: Order[];
   sales14Days: Array<{ day: string; total: number }>;
@@ -84,6 +85,7 @@ async function fetchDashboardData(): Promise<DashboardData> {
     userResponse,
     ordersResponse,
     activeProductsResponse,
+    categoriesResponse,
     pendingOrdersResponse,
     productsResponse,
   ] = await Promise.all([
@@ -94,6 +96,7 @@ async function fetchDashboardData(): Promise<DashboardData> {
       .gte("created_at", new Date(now.getFullYear(), now.getMonth(), now.getDate() - 45).toISOString())
       .order("created_at", { ascending: false }),
     supabase.from("products").select("id", { count: "exact", head: true }).eq("is_active", true),
+    supabase.from("categories").select("id", { count: "exact", head: true }),
     supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("products").select("id,name,collection,images,price"),
   ]);
@@ -120,6 +123,7 @@ async function fetchDashboardData(): Promise<DashboardData> {
 
   const latestOrders = orders.slice(0, 10);
   const activeProducts = activeProductsResponse.count ?? 0;
+  const totalCategories = categoriesResponse.count ?? 0;
   const pendingOrders = pendingOrdersResponse.count ?? 0;
 
   const sales14Days = Array.from({ length: 14 }).map((_, index) => {
@@ -190,6 +194,7 @@ async function fetchDashboardData(): Promise<DashboardData> {
     monthRevenue,
     revenueTrend: calculateTrend(monthRevenue, previousMonthRevenue),
     activeProducts,
+    totalCategories,
     pendingOrders,
     latestOrders,
     sales14Days: salesBars,
@@ -220,23 +225,20 @@ export function AdminDashboardClient() {
     return Math.max(...values, 1);
   }, [dashboardQuery.data?.sales14Days]);
 
-  if (dashboardQuery.isLoading) {
+  if (dashboardQuery.isLoading || dashboardQuery.isError || !dashboardQuery.data) {
     return (
       <div className="space-y-4">
         <div className="h-28 animate-pulse rounded-2xl bg-white" />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, index) => (
             <div key={index} className="h-36 animate-pulse rounded-2xl bg-white" />
           ))}
         </div>
-      </div>
-    );
-  }
-
-  if (dashboardQuery.isError || !dashboardQuery.data) {
-    return (
-      <div className="rounded-2xl border border-[#EDC6C3] bg-[#FDF0EF] p-5 text-sm text-[#A24D49]">
-        Errore nel caricamento dashboard. Riprova tra qualche secondo.
+        <div className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+          <div className="h-80 animate-pulse rounded-2xl bg-white" />
+          <div className="h-80 animate-pulse rounded-2xl bg-white" />
+        </div>
+        <div className="h-52 animate-pulse rounded-2xl bg-white" />
       </div>
     );
   }
@@ -250,7 +252,7 @@ export function AdminDashboardClient() {
         <p className="mt-1 text-sm text-[#5C5048]">{data.todayLabel}</p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <DashboardStats
           title="Ordini questo mese"
           value={data.monthOrders}
@@ -273,6 +275,14 @@ export function AdminDashboardClient() {
           trend="neutral"
           trendValue="Catalogo live"
           icon={Package}
+          color="lavender"
+        />
+        <DashboardStats
+          title="Categorie totali"
+          value={data.totalCategories}
+          trend="neutral"
+          trendValue="Navigazione"
+          icon={FolderTree}
           color="lavender"
         />
         <DashboardStats
@@ -389,4 +399,3 @@ export function AdminDashboardClient() {
     </div>
   );
 }
-
