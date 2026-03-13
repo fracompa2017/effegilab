@@ -301,7 +301,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => setShowLoginPassword((value) => !value)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#6D6056]"
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-full text-[#6D6056]"
                 >
                   {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -403,7 +403,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => setShowRegisterPassword((value) => !value)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#6D6056]"
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-full text-[#6D6056]"
                 >
                   {showRegisterPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -432,7 +432,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => setShowRegisterConfirmPassword((value) => !value)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[#6D6056]"
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-full text-[#6D6056]"
                 >
                   {showRegisterConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
