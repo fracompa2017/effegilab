@@ -21,6 +21,13 @@ type CheckoutRequestBody = {
   };
 };
 
+type LogLevel = "info" | "warn" | "error";
+type EmailDeliveryStatus = "sent" | "failed" | null;
+type EmailStatus = {
+  admin: EmailDeliveryStatus;
+  customer: EmailDeliveryStatus;
+};
+
 function getAdminSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -44,6 +51,17 @@ function getResendClient() {
   }
 
   return new Resend(apiKey);
+}
+
+function logOrder(level: LogLevel, event: string, data: Record<string, unknown>) {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    level,
+    event,
+    ...data,
+  };
+
+  console.log(JSON.stringify(payload));
 }
 
 function calculateSubtotal(items: CartItem[]) {
@@ -111,12 +129,24 @@ async function sendOrderEmails(params: {
     price: number;
     customizationNotes?: string | null;
   }>;
-}) {
+}): Promise<EmailStatus> {
+  const emailStatus: EmailStatus = {
+    admin: null,
+    customer: null,
+  };
+
   const resend = getResendClient();
   if (!resend) {
-    return;
+    logOrder("warn", "email.skipped", {
+      orderId: params.orderId,
+      reason: "RESEND_API_KEY missing",
+    });
+    return emailStatus;
   }
 
+  // IMPORTANT: Custom domains (e.g. ordini@effegi-lab.it) must be verified in Resend.
+  // Until verified, onboarding@resend.dev is the safest sender fallback.
+  const emailFrom = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
   const firstName = params.customerName.split(" ")[0] || "Sposa";
 
   const adminItemsHtml = params.items
@@ -139,7 +169,7 @@ async function sendOrderEmails(params: {
 
   try {
     await resend.emails.send({
-      from: "ordini@effegi-lab.it",
+      from: emailFrom,
       to: "info@effegi-lab.it",
       subject: `🎉 Nuovo ordine #${params.orderNumber} — ${params.customerName}`,
       html: `
@@ -153,9 +183,23 @@ async function sendOrderEmails(params: {
         <p><a href="https://effegilab.vercel.app/admin/ordini/${params.orderId}">Gestisci ordine nel pannello admin →</a></p>
       `,
     });
+    emailStatus.admin = "sent";
+    logOrder("info", "email.admin.sent", { orderId: params.orderId });
+  } catch (error) {
+    emailStatus.admin = "failed";
+    logOrder("error", "email.admin.failed", {
+      orderId: params.orderId,
+      error: error instanceof Error ? error.message : "unknown",
+      hint:
+        error instanceof Error && error.message.toLowerCase().includes("domain")
+          ? "Verifica dominio mittente su https://resend.com/domains"
+          : undefined,
+    });
+  }
 
+  try {
     await resend.emails.send({
-      from: "ordini@effegi-lab.it",
+      from: emailFrom,
       to: params.customerEmail,
       subject: `✅ Ordine confermato — Effegi Lab #${params.orderNumber}`,
       html: `
@@ -169,14 +213,26 @@ async function sendOrderEmails(params: {
         <p>Con affetto,<br>Giuseppina — Effegi Lab 💍</p>
       `,
     });
+    emailStatus.customer = "sent";
+    logOrder("info", "email.customer.sent", { orderId: params.orderId });
   } catch (error) {
-    console.error("Errore invio email ordine:", error);
+    emailStatus.customer = "failed";
+    logOrder("error", "email.customer.failed", {
+      orderId: params.orderId,
+      error: error instanceof Error ? error.message : "unknown",
+    });
   }
+
+  return emailStatus;
 }
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CheckoutRequestBody;
+    logOrder("info", "checkout.started", {
+      paymentMethod: body.paymentMethod,
+      itemCount: body.items?.length ?? 0,
+    });
 
     if (!body.items?.length) {
       return NextResponse.json(
@@ -233,6 +289,10 @@ export async function POST(request: Request) {
 
       paymentIntentId = paymentIntent.id;
       clientSecret = paymentIntent.client_secret;
+      logOrder("info", "payment.intent.created", {
+        paymentIntentId: paymentIntent.id,
+        orderNumber,
+      });
     }
 
     const orderItems = body.items.map((item) => ({
@@ -265,7 +325,14 @@ export async function POST(request: Request) {
       throw new Error(orderError.message);
     }
 
-    await sendOrderEmails({
+    logOrder("info", "order.created", {
+      orderId: String(createdOrder.id),
+      orderNumber,
+      total,
+      paymentMethod: body.paymentMethod,
+    });
+
+    const emailStatus = await sendOrderEmails({
       orderId: String(createdOrder.id),
       orderNumber,
       customerName: body.customer.customer_name,
@@ -280,6 +347,18 @@ export async function POST(request: Request) {
       })),
     });
 
+    const { error: emailStatusError } = await supabase
+      .from("orders")
+      .update({ email_status: emailStatus })
+      .eq("id", String(createdOrder.id));
+
+    if (emailStatusError) {
+      logOrder("warn", "order.email_status.update_failed", {
+        orderId: String(createdOrder.id),
+        error: emailStatusError.message,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       orderNumber,
@@ -288,8 +367,12 @@ export async function POST(request: Request) {
       discount,
       total,
       couponValid: Boolean(coupon),
+      emailStatus,
     });
   } catch (error) {
+    logOrder("error", "checkout.failed", {
+      error: error instanceof Error ? error.message : "Errore interno checkout.",
+    });
     return NextResponse.json(
       {
         success: false,
