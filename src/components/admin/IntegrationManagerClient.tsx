@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -66,23 +66,28 @@ const integrationDefinitions: IntegrationDefinition[] = [
 ];
 
 async function fetchIntegrations(): Promise<IntegrationRow[]> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("integrations")
-    .select("id,name,enabled,config,updated_at")
-    .order("name", { ascending: true });
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("integrations")
+      .select("id,name,enabled,config,updated_at")
+      .order("name", { ascending: true });
 
-  if (error) {
-    throw new Error(error.message);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      id: String(row.id),
+      name: row.name as IntegrationName,
+      enabled: Boolean(row.enabled),
+      config: (row.config as Record<string, string>) ?? {},
+      updated_at: String(row.updated_at ?? new Date().toISOString()),
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Errore caricamento integrazioni.";
+    throw new Error(message);
   }
-
-  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
-    id: String(row.id),
-    name: row.name as IntegrationName,
-    enabled: Boolean(row.enabled),
-    config: (row.config as Record<string, string>) ?? {},
-    updated_at: String(row.updated_at ?? new Date().toISOString()),
-  }));
 }
 
 export function IntegrationManagerClient() {
@@ -91,6 +96,8 @@ export function IntegrationManagerClient() {
 
   const [drafts, setDrafts] = useState<Record<string, IntegrationState>>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoadingState, setIsLoadingState] = useState(true);
 
   const integrationsQuery = useQuery({
     queryKey: ["admin-integrations"],
@@ -98,10 +105,22 @@ export function IntegrationManagerClient() {
     refetchInterval: 30_000,
   });
 
-  const loadErrorMessage =
-    integrationsQuery.error instanceof Error
-      ? integrationsQuery.error.message
-      : "Errore sconosciuto.";
+  useEffect(() => {
+    if (integrationsQuery.isLoading) {
+      setIsLoadingState(true);
+      setError(null);
+      return;
+    }
+
+    setIsLoadingState(false);
+    if (integrationsQuery.isError) {
+      setError(integrationsQuery.error instanceof Error ? integrationsQuery.error.message : "Errore sconosciuto.");
+      return;
+    }
+    setError(null);
+  }, [integrationsQuery.error, integrationsQuery.isError, integrationsQuery.isLoading]);
+
+  const loadErrorMessage = error ?? "Errore sconosciuto.";
   const isMissingSchema =
     loadErrorMessage.includes("Could not find the table") ||
     loadErrorMessage.includes("schema cache");
@@ -167,7 +186,7 @@ export function IntegrationManagerClient() {
     }));
   }
 
-  if (integrationsQuery.isLoading) {
+  if (isLoadingState) {
     return (
       <div className="space-y-4">
         <header className="space-y-1">
@@ -179,7 +198,7 @@ export function IntegrationManagerClient() {
     );
   }
 
-  if (integrationsQuery.isError) {
+  if (error) {
     return (
       <div className="space-y-4">
         <header className="space-y-1">
