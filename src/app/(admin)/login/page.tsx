@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -21,20 +21,13 @@ export default function AdminLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const errorParam = searchParams.get("error");
-
-  useEffect(() => {
-    const errorMessages: Record<string, string> = {
-      db: "Errore database. Riprova.",
-      unauthorized: "Account non autorizzato per il pannello admin.",
-      unexpected: "Errore imprevisto. Riprova.",
-    };
-
-    if (!errorParam) {
-      return;
-    }
-
-    setErrorMessage(errorMessages[errorParam] ?? "Accesso admin non riuscito.");
-  }, [errorParam]);
+  const errorMessages: Record<string, string> = {
+    db: "Errore database. Riprova.",
+    unauthorized: "Account non autorizzato per il pannello admin.",
+    unexpected: "Errore imprevisto. Riprova.",
+  };
+  const queryErrorMessage = errorParam ? errorMessages[errorParam] ?? "Accesso admin non riuscito." : null;
+  const activeErrorMessage = errorMessage ?? queryErrorMessage;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -100,10 +93,10 @@ export default function AdminLoginPage() {
             onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
           />
 
-          {errorMessage ? (
+          {activeErrorMessage ? (
             <div className="flex items-center gap-2 rounded-xl border border-[#EDC6C3] bg-[#FDF0EF] px-3 py-2 text-sm text-[#A24D49]">
               <AlertCircle size={14} />
-              {errorMessage}
+              {activeErrorMessage}
             </div>
           ) : null}
 
