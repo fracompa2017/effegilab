@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "ts-node --project tsconfig.json scripts/seed-products.ts",
-    "import:woo": "ts-node --project tsconfig.json scripts/import-woocommerce.ts"
+    "import:woo": "ts-node --project tsconfig.json scripts/import-woocommerce.ts",
+    "create-admin": "ts-node --project tsconfig.json scripts/create-admin.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
