@@ -15,6 +15,25 @@ function redirectWithCookies(request: NextRequest, response: NextResponse, path:
   return redirectResponse;
 }
 
+function getJwtRole(user: { app_metadata?: unknown; user_metadata?: unknown }) {
+  const appRole =
+    user.app_metadata && typeof user.app_metadata === "object"
+      ? (user.app_metadata as Record<string, unknown>).role
+      : undefined;
+  const userRole =
+    user.user_metadata && typeof user.user_metadata === "object"
+      ? (user.user_metadata as Record<string, unknown>).role
+      : undefined;
+
+  if (typeof appRole === "string") {
+    return appRole;
+  }
+  if (typeof userRole === "string") {
+    return userRole;
+  }
+  return null;
+}
+
 export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAdminRoute = pathname.startsWith("/admin");
@@ -60,11 +79,18 @@ export async function updateSession(request: NextRequest) {
       return redirectWithCookies(request, response, "/admin/login");
     }
 
+    // Primary authz path: read role directly from JWT metadata.
+    // This avoids fragile profile lookups in middleware and prevents admin lockouts.
+    const jwtRole = getJwtRole(user);
+    if (jwtRole === "admin") {
+      return response;
+    }
+
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
     if (profileError) {
       return redirectWithCookies(request, response, "/admin/login?error=db");
