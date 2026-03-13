@@ -25,9 +25,18 @@ const statusTabs: Array<{ label: string; value: StatusFilter }> = [
 ];
 
 type OrdersResponse = {
-  data: Order[];
+  data: Array<
+    Order & {
+      email_status?: {
+        admin?: "sent" | "failed" | null;
+        customer?: "sent" | "failed" | null;
+      } | null;
+    }
+  >;
   count: number;
 };
+
+type EmailStatusValue = "sent" | "failed" | null;
 
 function normalizeStatus(status: string): OrderStatus {
   if (
@@ -91,7 +100,14 @@ async function fetchOrders(params: {
     throw new Error(error.message);
   }
 
-  const normalized = ((data ?? []) as Order[]).map((order) => ({
+  const normalized = ((data ?? []) as Array<
+    Order & {
+      email_status?: {
+        admin?: EmailStatusValue;
+        customer?: EmailStatusValue;
+      } | null;
+    }
+  >).map((order) => ({
     ...order,
     status: normalizeStatus(order.status),
   }));
@@ -114,6 +130,7 @@ export function AdminOrdersListClient() {
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [statusDraft, setStatusDraft] = useState<Record<string, OrderStatus>>({});
+  const [csvExporting, setCsvExporting] = useState(false);
 
   const ordersQuery = useQuery({
     queryKey: [
@@ -171,9 +188,82 @@ export function AdminOrdersListClient() {
     updateStatusMutation.mutate({ id: orderId, status: nextStatus });
   }
 
-  function exportCsv() {
-    const rows = ordersQuery.data?.data ?? [];
+  function parseEmailStatus(raw: unknown): { admin: EmailStatusValue; customer: EmailStatusValue } {
+    if (!raw || typeof raw !== "object") {
+      return { admin: null, customer: null };
+    }
+
+    const value = raw as Record<string, unknown>;
+    const toStatus = (entry: unknown): EmailStatusValue => {
+      if (entry === "sent" || entry === "failed") {
+        return entry;
+      }
+      return null;
+    };
+
+    return {
+      admin: toStatus(value.admin),
+      customer: toStatus(value.customer),
+    };
+  }
+
+  function statusSymbol(value: EmailStatusValue) {
+    if (value === "sent") {
+      return "✅";
+    }
+    if (value === "failed") {
+      return "❌";
+    }
+    return "•";
+  }
+
+  async function exportCsv() {
+    setCsvExporting(true);
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .order(sortField, { ascending: sortDirection === "asc" });
+
+    setCsvExporting(false);
+
+    if (error) {
+      window.alert("Export non riuscito. Riprova.");
+      return;
+    }
+
+    const rows = ((data ?? []) as Order[])
+      .filter((order) => {
+        if (statusFilter !== "all" && normalizeStatus(order.status) !== statusFilter) {
+          return false;
+        }
+
+        if (search.trim()) {
+          const term = search.trim().toLowerCase();
+          const orderNumber = String(order.order_number ?? "").toLowerCase();
+          const customerName = String(order.customer_name ?? "").toLowerCase();
+          if (!orderNumber.includes(term) && !customerName.includes(term)) {
+            return false;
+          }
+        }
+
+        if (fromDate && order.created_at < `${fromDate}T00:00:00.000Z`) {
+          return false;
+        }
+
+        if (toDate && order.created_at > `${toDate}T23:59:59.999Z`) {
+          return false;
+        }
+
+        return true;
+      })
+      .map((order) => ({
+        ...order,
+        status: normalizeStatus(order.status),
+      }));
+
     if (!rows.length) {
+      window.alert("Nessun ordine da esportare con i filtri correnti.");
       return;
     }
 
@@ -184,6 +274,8 @@ export function AdminOrdersListClient() {
       "Prodotti",
       "Totale",
       "Stato",
+      "Email admin",
+      "Email cliente",
       "Data",
     ];
     const csvRows = rows.map((order) => [
@@ -193,6 +285,8 @@ export function AdminOrdersListClient() {
       csvEscape(Array.isArray(order.items) ? order.items.length : 0),
       csvEscape(Number(order.total).toFixed(2)),
       csvEscape(order.status),
+      csvEscape(parseEmailStatus((order as { email_status?: unknown }).email_status).admin ?? ""),
+      csvEscape(parseEmailStatus((order as { email_status?: unknown }).email_status).customer ?? ""),
       csvEscape(order.created_at),
     ]);
 
@@ -269,10 +363,11 @@ export function AdminOrdersListClient() {
           <button
             type="button"
             onClick={exportCsv}
+            disabled={csvExporting}
             className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-[#5C5048] hover:border-[#D4918F]"
           >
             <Download size={14} />
-            Export CSV
+            {csvExporting ? "Export..." : "Export CSV"}
           </button>
         </div>
       </section>
@@ -325,6 +420,7 @@ export function AdminOrdersListClient() {
                         Data
                       </button>
                     </th>
+                    <th className="pb-3 font-medium">Email status</th>
                     <th className="pb-3 font-medium">Azioni</th>
                   </tr>
                 </thead>
@@ -340,6 +436,17 @@ export function AdminOrdersListClient() {
                         <OrderStatusBadge status={order.status} />
                       </td>
                       <td className="py-3 text-[#5C5048]">{formatDate(order.created_at)}</td>
+                      <td className="py-3">
+                        {(() => {
+                          const status = parseEmailStatus(order.email_status);
+                          return (
+                            <span className="inline-flex items-center gap-1 text-xs text-[#5C5048]">
+                              <span title={`Admin: ${status.admin ?? "n/a"}`}>A{statusSymbol(status.admin)}</span>
+                              <span title={`Cliente: ${status.customer ?? "n/a"}`}>C{statusSymbol(status.customer)}</span>
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="py-3">
                         <div className="flex items-center gap-2">
                           <Link
@@ -410,4 +517,3 @@ export function AdminOrdersListClient() {
     </div>
   );
 }
-
