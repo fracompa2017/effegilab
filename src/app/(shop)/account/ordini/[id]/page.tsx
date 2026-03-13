@@ -149,7 +149,7 @@ export default async function AccountOrderDetailPage({ params }: AccountOrderDet
           </section>
 
           <Link
-            href={`https://wa.me/393XXXXXXXXX?text=${whatsappText}`}
+            href={`https://wa.me/393333333333?text=${whatsappText}`}
             target="_blank"
             className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#25D366] px-4 text-sm font-semibold text-white"
           >
