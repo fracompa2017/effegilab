@@ -9,10 +9,12 @@ import {
   FolderTree,
   Grid2x2,
   Image,
+  Link2,
   ListTree,
   LogOut,
   Menu,
   Package,
+  Search,
   Settings,
   Tag,
   X,
@@ -40,6 +42,8 @@ const navItems: NavItem[] = [
   { href: "/admin/media", label: "Media", icon: Image },
   { href: "/admin/coupon", label: "Coupon", icon: Tag },
   { href: "/admin/pagine", label: "Pagine", icon: Edit3 },
+  { href: "/admin/seo", label: "SEO", icon: Search },
+  { href: "/admin/integrazioni", label: "Integrazioni", icon: Link2 },
   { href: "/admin/impostazioni", label: "Impostazioni", icon: Settings },
 ];
 
