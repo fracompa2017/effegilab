@@ -21,13 +21,9 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-async function createAdmin() {
-  const email = "effegilab2023@gmail.com";
-  const password = "EffegiLab2025!";
-
+async function ensureAdminUser(email: string, password: string) {
   console.log(`\nCreazione utente admin: ${email}`);
 
-  // 1. Crea utente in auth.users
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -35,51 +31,11 @@ async function createAdmin() {
     user_metadata: { role: "admin", name: "Giuseppina" },
   });
 
-  if (error) {
-    if (error.message.includes("already been registered")) {
-      console.log("⚠️  Utente già esistente — aggiorno solo il profilo");
-
-      // Recupera utente esistente
-      const { data: users } = await supabase.auth.admin.listUsers();
-      const existing = users?.users?.find((user) => user.email === email);
-
-      if (!existing) {
-        console.error("❌ Utente non trovato");
-        process.exit(1);
-      }
-
-      // Aggiorna password
-      await supabase.auth.admin.updateUserById(existing.id, { password });
-      console.log("✅ Password aggiornata");
-
-      // Upsert profilo
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert({
-          id: existing.id,
-          email,
-          name: "Giuseppina",
-          role: "admin",
-        });
-
-      if (profileError) {
-        console.error("❌ Errore profilo:", profileError.message);
-        process.exit(1);
-      }
-
-      console.log("✅ Profilo admin aggiornato");
-    } else {
-      console.error("❌ Errore creazione utente:", error.message);
-      process.exit(1);
-    }
-  } else {
-    console.log("✅ Utente creato:", data.user?.id);
-
-    // Crea profilo admin
+  if (!error && data.user) {
     const { error: profileError } = await supabase
       .from("profiles")
       .upsert({
-        id: data.user!.id,
+        id: data.user.id,
         email,
         name: "Giuseppina",
         role: "admin",
@@ -90,13 +46,74 @@ async function createAdmin() {
       process.exit(1);
     }
 
+    console.log("✅ Utente creato:", data.user.id);
     console.log("✅ Profilo admin creato");
+    return;
+  }
+
+  if (!error?.message.includes("already been registered")) {
+    console.error("❌ Errore creazione utente:", error?.message);
+    process.exit(1);
+  }
+
+  console.log("⚠️  Utente già esistente — aggiorno solo il profilo");
+  const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
+  if (listError) {
+    console.error("❌ Errore lettura utenti:", listError.message);
+    process.exit(1);
+  }
+
+  const existing = usersData.users.find((user) => user.email === email);
+  if (!existing) {
+    console.error("❌ Utente non trovato");
+    process.exit(1);
+  }
+
+  const { error: updateError } = await supabase.auth.admin.updateUserById(existing.id, {
+    password,
+    user_metadata: {
+      ...(existing.user_metadata ?? {}),
+      role: "admin",
+      name: "Giuseppina",
+    },
+  });
+
+  if (updateError) {
+    console.error("❌ Errore aggiornamento utente:", updateError.message);
+    process.exit(1);
+  }
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .upsert({
+      id: existing.id,
+      email,
+      name: "Giuseppina",
+      role: "admin",
+    });
+
+  if (profileError) {
+    console.error("❌ Errore profilo:", profileError.message);
+    process.exit(1);
+  }
+
+  console.log("✅ Password aggiornata");
+  console.log("✅ Profilo admin aggiornato");
+}
+
+async function createAdmin() {
+  const password = "EffegiLab2025!";
+  const adminEmails = ["effegilab2023@gmail.com", "admin@effegi-lab.it"];
+
+  for (const email of adminEmails) {
+    await ensureAdminUser(email, password);
   }
 
   console.log("\n✅ Admin pronto!");
-  console.log(`   Email:    ${email}`);
+  console.log("   Email:    effegilab2023@gmail.com");
+  console.log("   Email 2:  admin@effegi-lab.it");
   console.log(`   Password: ${password}`);
   console.log("   URL:      https://effegilab.vercel.app/admin/login\n");
 }
 
-createAdmin();
+void createAdmin();
