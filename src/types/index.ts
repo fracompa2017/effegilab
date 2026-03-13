@@ -62,6 +62,7 @@ export interface CartItem {
   product: Product;
   quantity: number;
   selected_options: Record<string, string | number | boolean | null>;
+  customizationNotes?: string;
 }
 
 export interface PageBlock {
