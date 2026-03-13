@@ -281,7 +281,7 @@ export function ProductCard({ product, className, showWishlistButton = true }: P
                 const nextState = !isWishlisted;
                 toggleWishlistMutation.mutate(nextState);
               }}
-              className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#5C5048]"
+              className="absolute right-2 top-2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-[#5C5048]"
             >
               <Heart size={16} className={cn(isWishlisted ? "fill-[#D4918F] text-[#D4918F]" : "")} />
             </button>
@@ -302,7 +302,9 @@ export function ProductCard({ product, className, showWishlistButton = true }: P
         >
           {product.name}
         </Link>
-        <p className="text-[11px] uppercase tracking-[0.08em] text-[#D4918F]">{product.collection ?? "Effegi Lab"}</p>
+        {product.collection ? (
+          <p className="text-[11px] uppercase tracking-[0.08em] text-[#D4918F]">{product.collection}</p>
+        ) : null}
         <p className="text-[16px] font-semibold text-[#1E1810]">
           {product.price_min ? `da ${formatPrice(product.price_min)}` : formatPrice(displayPrice)}
         </p>
@@ -315,7 +317,7 @@ export function ProductCard({ product, className, showWishlistButton = true }: P
 
         <Link
           href={`/prodotto/${product.slug}`}
-          className="flex min-h-10 w-full items-center justify-center rounded-full bg-[#D4918F] px-3 text-[13px] font-medium text-white"
+          className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#D4918F] px-3 text-[13px] font-medium text-white"
         >
           Personalizza
         </Link>
