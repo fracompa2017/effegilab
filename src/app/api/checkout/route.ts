@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
 
 import { getStripeServer } from "@/lib/stripe/server";
@@ -34,6 +35,15 @@ function getAdminSupabaseClient() {
       autoRefreshToken: false,
     },
   });
+}
+
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+
+  return new Resend(apiKey);
 }
 
 function calculateSubtotal(items: CartItem[]) {
@@ -86,6 +96,82 @@ function calculateDiscount(subtotal: number, coupon: Coupon | null) {
   }
 
   return Number(Math.min(subtotal, coupon.discount_value).toFixed(2));
+}
+
+async function sendOrderEmails(params: {
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  total: number;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+    customizationNotes?: string | null;
+  }>;
+}) {
+  const resend = getResendClient();
+  if (!resend) {
+    return;
+  }
+
+  const firstName = params.customerName.split(" ")[0] || "Sposa";
+
+  const adminItemsHtml = params.items
+    .map(
+      (item) => `
+      <div style="margin-bottom:12px;">
+        <strong>${item.name}</strong> x${item.quantity}<br>
+        ${item.customizationNotes ? `<em>Note: ${item.customizationNotes}</em>` : ""}
+      </div>
+    `,
+    )
+    .join("");
+
+  const customerItemsHtml = params.items
+    .map(
+      (item) =>
+        `<div>${item.name} x${item.quantity} — €${item.price.toFixed(2)}</div>`,
+    )
+    .join("");
+
+  try {
+    await resend.emails.send({
+      from: "ordini@effegi-lab.it",
+      to: "info@effegi-lab.it",
+      subject: `🎉 Nuovo ordine #${params.orderNumber} — ${params.customerName}`,
+      html: `
+        <h2>Nuovo Ordine Ricevuto!</h2>
+        <p><strong>Cliente:</strong> ${params.customerName}</p>
+        <p><strong>Email:</strong> ${params.customerEmail}</p>
+        <p><strong>Telefono:</strong> ${params.customerPhone}</p>
+        <p><strong>Totale:</strong> €${params.total.toFixed(2)}</p>
+        <h3>Prodotti:</h3>
+        ${adminItemsHtml}
+        <p><a href="https://effegilab.vercel.app/admin/ordini/${params.orderId}">Gestisci ordine nel pannello admin →</a></p>
+      `,
+    });
+
+    await resend.emails.send({
+      from: "ordini@effegi-lab.it",
+      to: params.customerEmail,
+      subject: `✅ Ordine confermato — Effegi Lab #${params.orderNumber}`,
+      html: `
+        <h2>Grazie per il tuo ordine, ${firstName}!</h2>
+        <p>Abbiamo ricevuto il tuo ordine e lo stiamo elaborando.</p>
+        <p>Ti contatteremo entro 48h su WhatsApp per la bozza grafica.</p>
+        <h3>Riepilogo ordine:</h3>
+        ${customerItemsHtml}
+        <p><strong>Totale: €${params.total.toFixed(2)}</strong></p>
+        <p>Hai domande? Scrivici su WhatsApp o rispondi a questa email.</p>
+        <p>Con affetto,<br>Giuseppina — Effegi Lab 💍</p>
+      `,
+    });
+  } catch (error) {
+    console.error("Errore invio email ordine:", error);
+  }
 }
 
 export async function POST(request: Request) {
@@ -155,24 +241,44 @@ export async function POST(request: Request) {
       quantity: item.quantity,
       price: item.product.price ?? 0,
       options: item.selected_options,
+      customizationNotes: item.customizationNotes ?? null,
     }));
 
-    const { error: orderError } = await supabase.from("orders").insert({
-      order_number: orderNumber,
-      customer_email: body.customer.customer_email,
-      customer_name: body.customer.customer_name,
-      customer_phone: body.customer.customer_phone,
-      items: orderItems,
-      total,
-      status: "pending",
-      customization_notes: body.customer.customization_notes ?? null,
-      shipping_address: body.customer.shipping_address ?? null,
-      stripe_payment_id: paymentIntentId,
-    });
+    const { data: createdOrder, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        order_number: orderNumber,
+        customer_email: body.customer.customer_email,
+        customer_name: body.customer.customer_name,
+        customer_phone: body.customer.customer_phone,
+        items: orderItems,
+        total,
+        status: "pending",
+        customization_notes: body.customer.customization_notes ?? null,
+        shipping_address: body.customer.shipping_address ?? null,
+        stripe_payment_id: paymentIntentId,
+      })
+      .select("id")
+      .single();
 
     if (orderError) {
       throw new Error(orderError.message);
     }
+
+    await sendOrderEmails({
+      orderId: String(createdOrder.id),
+      orderNumber,
+      customerName: body.customer.customer_name,
+      customerEmail: body.customer.customer_email,
+      customerPhone: body.customer.customer_phone,
+      total,
+      items: orderItems.map((item) => ({
+        name: item.product_name,
+        quantity: item.quantity,
+        price: item.price,
+        customizationNotes: item.customizationNotes,
+      })),
+    });
 
     return NextResponse.json({
       success: true,
@@ -193,4 +299,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
