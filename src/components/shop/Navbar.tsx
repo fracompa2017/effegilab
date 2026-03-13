@@ -1,11 +1,12 @@
 "use client";
 
+import { LogOut, Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Menu, Search, ShoppingBag, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type TouchEvent } from "react";
 
 import { useCartStore } from "@/lib/cart-store";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 type EventLink = {
@@ -92,15 +93,42 @@ function BottomMobileNav() {
   );
 }
 
+function getUserLabel(metadata: Record<string, unknown> | undefined) {
+  if (!metadata) {
+    return "Account";
+  }
+
+  const name = typeof metadata.first_name === "string" ? metadata.first_name : "";
+  const surname = typeof metadata.last_name === "string" ? metadata.last_name : "";
+  const fullName = `${name} ${surname}`.trim();
+
+  if (fullName.length > 0) {
+    return fullName;
+  }
+
+  if (typeof metadata.full_name === "string" && metadata.full_name.trim().length > 0) {
+    return metadata.full_name.trim();
+  }
+
+  return "Account";
+}
+
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const toggleCart = useCartStore((state) => state.toggleCart);
   const totalItems = useCartStore((state) => state.totalItems);
+  const supabase = useMemo(() => createClient(), []);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [compact, setCompact] = useState(false);
   const [showMega, setShowMega] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [userName, setUserName] = useState("Account");
+  const [userInitial, setUserInitial] = useState<string | null>(null);
+
+  const isLoggedIn = Boolean(userInitial);
 
   useEffect(() => {
     const onScroll = () => {
@@ -125,6 +153,37 @@ export function Navbar() {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const syncUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!mounted) {
+        return;
+      }
+
+      setUserInitial(user?.email?.charAt(0).toUpperCase() ?? null);
+      setUserName(getUserLabel((user?.user_metadata ?? undefined) as Record<string, unknown> | undefined));
+    };
+
+    void syncUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUser = session?.user ?? null;
+      setUserInitial(nextUser?.email?.charAt(0).toUpperCase() ?? null);
+      setUserName(getUserLabel((nextUser?.user_metadata ?? undefined) as Record<string, unknown> | undefined));
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
   function closeMenu() {
     setMenuOpen(false);
   }
@@ -139,6 +198,14 @@ export function Navbar() {
       closeMenu();
     }
     setTouchStartY(null);
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setMenuOpen(false);
+    setAccountMenuOpen(false);
+    router.push("/auth");
+    router.refresh();
   }
 
   return (
@@ -239,6 +306,53 @@ export function Navbar() {
               </div>
             </div>
 
+            {isLoggedIn ? (
+              <div className="relative hidden md:block">
+                <button
+                  type="button"
+                  onClick={() => setAccountMenuOpen((current) => !current)}
+                  className="inline-flex min-h-12 items-center gap-2 rounded-full border border-[#E8DED2] bg-white px-4 text-sm font-medium text-[#1E1810]"
+                >
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#F6E9E8] text-xs font-semibold">
+                    {userInitial}
+                  </span>
+                  <span className="max-w-[92px] truncate">{userName}</span>
+                </button>
+
+                {accountMenuOpen ? (
+                  <div className="absolute right-0 top-[56px] w-48 rounded-2xl border border-[#E8DED2] bg-white p-2 shadow-lg">
+                    <Link
+                      href="/account"
+                      className="flex min-h-11 items-center rounded-xl px-3 text-sm text-[#1E1810] hover:bg-[#F8F4EE]"
+                    >
+                      Account
+                    </Link>
+                    <Link
+                      href="/account"
+                      className="flex min-h-11 items-center rounded-xl px-3 text-sm text-[#1E1810] hover:bg-[#F8F4EE]"
+                    >
+                      Ordini
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-sm text-[#A24D49] hover:bg-[#FDF0EF]"
+                    >
+                      <LogOut size={15} />
+                      Logout
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <Link
+                href="/auth"
+                className="hidden min-h-12 items-center px-2 text-sm font-medium text-[#5C5048] hover:text-[#1E1810] md:inline-flex"
+              >
+                Accedi
+              </Link>
+            )}
+
             <button
               type="button"
               onClick={() => toggleCart(true)}
@@ -327,6 +441,26 @@ export function Navbar() {
         </div>
 
         <div className="space-y-3 border-t border-[#EFE7DD] pt-4">
+          <Link
+            href={isLoggedIn ? "/account" : "/auth"}
+            onClick={closeMenu}
+            className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#E8DED2] bg-white px-4 text-sm font-medium text-[#1E1810]"
+          >
+            <UserRound size={16} />
+            {isLoggedIn ? "Il mio account" : "Accedi / Registrati"}
+          </Link>
+
+          {isLoggedIn ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[#EDC6C3] px-4 text-sm font-medium text-[#A24D49]"
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
+          ) : null}
+
           <Link
             href="https://wa.me/393333333333"
             target="_blank"
