@@ -114,6 +114,14 @@ export function CartDrawer() {
                       </div>
                       <div className="min-w-0 flex-1 space-y-1">
                         <p className="truncate text-sm font-medium text-[#1E1810]">{item.product.name}</p>
+                        {item.customizationNotes ? (
+                          <p className="text-[11px] italic text-[#7A6F66]">
+                            ✏️ Note:{" "}
+                            {item.customizationNotes.length > 50
+                              ? `${item.customizationNotes.slice(0, 50)}...`
+                              : item.customizationNotes}
+                          </p>
+                        ) : null}
                         <p className="text-xs text-[#5C5048]">{formatPrice(item.product.price ?? 0)}</p>
                         {Object.entries(item.selected_options).length ? (
                           <p className="text-xs text-[#7A6F66]">
@@ -218,4 +226,3 @@ export function CartDrawer() {
     </div>
   );
 }
-
