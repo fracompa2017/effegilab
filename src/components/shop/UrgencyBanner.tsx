@@ -14,7 +14,7 @@ function getDefaultMessage(type: UrgencyBannerProps["type"]) {
     return "🎉 Codice LAB15 attivo — 15% su tutto fino a domenica";
   }
   if (type === "seasonal") {
-    return "📅 Matrimoni estate 2025 — prenota ora la tua consulenza gratuita";
+    return "📅 Matrimoni estate 2026 — prenota ora la tua consulenza gratuita";
   }
   return "✨ Bozza grafica GRATUITA con ogni ordine";
 }
@@ -76,7 +76,7 @@ export function UrgencyBanner({ type, expiryDate, message }: UrgencyBannerProps)
             setDismissed(true);
             window.localStorage.setItem(storageKey, "1");
           }}
-          className="absolute right-3 inline-flex h-8 w-8 items-center justify-center rounded-full"
+          className="absolute right-2 inline-flex min-h-12 min-w-12 items-center justify-center rounded-full"
           aria-label="Chiudi banner"
         >
           <X size={14} />
