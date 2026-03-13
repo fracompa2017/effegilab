@@ -198,26 +198,15 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               <div className="space-y-4 px-1 pb-1 pt-4">
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-[#1E1810]">Quantità</p>
-                  <div className="flex items-center gap-2">
-                    <div className="inline-flex items-center rounded-full border border-[#D7CEC1] bg-white">
-                      <button
-                        type="button"
-                        onClick={() => setQuantity((current) => clampQuantity(current - 1))}
-                        className="inline-flex h-12 w-12 items-center justify-center text-[#5C5048]"
-                        aria-label="Riduci quantità"
-                      >
-                        <Minus size={16} />
-                      </button>
-                      <span className="min-w-10 text-center text-sm font-semibold">{quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => setQuantity((current) => clampQuantity(current + 1))}
-                        className="inline-flex h-12 w-12 items-center justify-center text-[#5C5048]"
-                        aria-label="Aumenta quantità"
-                      >
-                        <Plus size={16} />
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-0 overflow-hidden rounded-full border border-[#D7CEC1] bg-white">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((current) => clampQuantity(current - 1))}
+                      className="flex h-12 w-12 items-center justify-center text-[#5C5048] hover:bg-[#F8F6F2]"
+                      aria-label="Riduci quantità"
+                    >
+                      <Minus size={16} />
+                    </button>
                     <input
                       type="number"
                       min={1}
@@ -225,10 +214,18 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
                       placeholder="es. 50"
                       value={quantity}
                       onChange={(event) => setQuantity(clampQuantity(Number(event.target.value)))}
-                      className="h-12 w-full rounded-full border border-[#D7CEC1] px-4 text-[16px] outline-none focus:border-[#D4918F]"
+                      className="w-16 border-x border-[#D7CEC1] bg-white py-2 text-center text-[16px] font-semibold text-[#1E1810] outline-none"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((current) => clampQuantity(current + 1))}
+                      className="flex h-12 w-12 items-center justify-center text-[#5C5048] hover:bg-[#F8F6F2]"
+                      aria-label="Aumenta quantità"
+                    >
+                      <Plus size={16} />
+                    </button>
                   </div>
-                  <p className="text-xs text-[#6F645A]">Puoi ordinare qualsiasi quantità</p>
+                  <p className="text-xs text-[#6F645A]">Puoi ordinare qualsiasi quantità, nessun minimo</p>
                 </div>
 
                 <div className="space-y-1 text-[13px] text-[#5C5048]">
