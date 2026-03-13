@@ -55,6 +55,21 @@ const categories = [
   },
 ];
 
+const supportedBlockTypes = new Set([
+  "hero",
+  "categories",
+  "collections",
+  "products",
+  "how-it-works",
+  "text-image",
+  "banner-promo",
+  "instagram",
+  "reviews",
+  "consult-banner",
+  "spacer",
+  "text",
+]);
+
 function normalizeHomepageBlocks(blocks: unknown): PageBlock[] {
   if (!Array.isArray(blocks)) {
     return [];
@@ -92,9 +107,10 @@ export default async function HomePage() {
   ]);
 
   const blocks = contentResponse.error ? [] : normalizeHomepageBlocks(contentResponse.data?.blocks);
+  const supportedBlocks = blocks.filter((block) => supportedBlockTypes.has(block.type));
 
-  if (blocks.length > 0) {
-    return <BlockRenderer blocks={blocks} />;
+  if (supportedBlocks.length > 0) {
+    return <BlockRenderer blocks={supportedBlocks} />;
   }
 
   const products = productsResponse.products;
