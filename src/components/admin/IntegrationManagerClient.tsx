@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -96,30 +96,18 @@ export function IntegrationManagerClient() {
 
   const [drafts, setDrafts] = useState<Record<string, IntegrationState>>({});
   const [toast, setToast] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoadingState, setIsLoadingState] = useState(true);
 
   const integrationsQuery = useQuery({
     queryKey: ["admin-integrations"],
     queryFn: fetchIntegrations,
     refetchInterval: 30_000,
   });
-
-  useEffect(() => {
-    if (integrationsQuery.isLoading) {
-      setIsLoadingState(true);
-      setError(null);
-      return;
-    }
-
-    setIsLoadingState(false);
-    if (integrationsQuery.isError) {
-      setError(integrationsQuery.error instanceof Error ? integrationsQuery.error.message : "Errore sconosciuto.");
-      return;
-    }
-    setError(null);
-  }, [integrationsQuery.error, integrationsQuery.isError, integrationsQuery.isLoading]);
-
+  const isLoadingState = integrationsQuery.isLoading;
+  const error = integrationsQuery.isError
+    ? integrationsQuery.error instanceof Error
+      ? integrationsQuery.error.message
+      : "Errore sconosciuto."
+    : null;
   const loadErrorMessage = error ?? "Errore sconosciuto.";
   const isMissingSchema =
     loadErrorMessage.includes("Could not find the table") ||
