@@ -48,19 +48,6 @@ export function AdminLoginClient({ errorParam }: AdminLoginClientProps) {
       return;
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
-
-    if (profileError || profile?.role !== "admin") {
-      await supabase.auth.signOut();
-      setIsLoading(false);
-      setErrorMessage("Non hai i permessi per accedere al pannello admin.");
-      return;
-    }
-
     router.replace("/admin/dashboard");
     router.refresh();
   }
