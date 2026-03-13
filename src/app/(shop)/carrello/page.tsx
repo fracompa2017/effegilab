@@ -139,7 +139,7 @@ export default function CartPage() {
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                      className="inline-flex h-10 w-10 items-center justify-center text-[#5C5048]"
+                      className="inline-flex h-12 w-12 items-center justify-center text-[#5C5048]"
                       aria-label="Riduci quantità"
                     >
                       <Minus size={14} />
@@ -148,7 +148,7 @@ export default function CartPage() {
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                      className="inline-flex h-10 w-10 items-center justify-center text-[#5C5048]"
+                      className="inline-flex h-12 w-12 items-center justify-center text-[#5C5048]"
                       aria-label="Aumenta quantità"
                     >
                       <Plus size={14} />
@@ -161,7 +161,7 @@ export default function CartPage() {
                 type="button"
                 onClick={() => removeItem(item.product.id)}
                 className={cn(
-                  "absolute bottom-3 right-3 inline-flex min-h-10 items-center gap-1 rounded-full border border-[#E9D3D0] px-3 text-xs text-[#A24D49] transition",
+                  "absolute bottom-3 right-3 inline-flex min-h-12 min-w-12 items-center gap-1 rounded-full border border-[#E9D3D0] px-3 text-xs text-[#A24D49] transition",
                   swipedItemId === item.product.id ? "opacity-100" : "opacity-0 md:opacity-100",
                 )}
               >
