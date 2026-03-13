@@ -5,6 +5,7 @@ import { HeroSection } from "@/components/shop/HeroSection";
 import { HowItWorks } from "@/components/shop/HowItWorks";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { SocialProof } from "@/components/shop/SocialProof";
+import { TrustBar } from "@/components/shop/TrustBar";
 import { getCollectionsServer, getProductsServer } from "@/lib/server-queries";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -123,6 +124,7 @@ export default async function HomePage() {
   return (
     <div className="-mx-4 space-y-16 pb-10 md:-mx-8">
       <HeroSection />
+      <TrustBar />
 
       <section className="bg-[#F8F6F2] px-4 md:px-8">
         <div className="mx-auto grid w-full max-w-6xl grid-cols-3 border-y border-[#E6DDD2] py-8">
@@ -293,7 +295,7 @@ export default async function HomePage() {
               Prenota Consulenza
             </Link>
             <Link
-              href="https://wa.me/393XXXXXXXXX"
+              href="https://wa.me/393333333333"
               target="_blank"
               className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#D4918F] bg-white px-6 text-sm font-medium text-[#D4918F]"
             >
