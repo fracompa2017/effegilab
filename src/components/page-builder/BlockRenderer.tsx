@@ -89,9 +89,33 @@ function toSteps(value: unknown): Array<{ number: string; title: string; descrip
     .filter(Boolean) as Array<{ number: string; title: string; description: string }>;
 }
 
+function normalizeBlock(block: PageBlock, index: number): PageBlock {
+  const source = block as PageBlock & Record<string, unknown>;
+  const reservedKeys = new Set(["id", "type", "props", "order"]);
+  const existingProps =
+    source.props && typeof source.props === "object"
+      ? (source.props as Record<string, unknown>)
+      : {};
+  const hasExistingProps = Object.keys(existingProps).length > 0;
+
+  const topLevelProps = Object.fromEntries(
+    Object.entries(source).filter(
+      ([key, value]) => !reservedKeys.has(key) && value !== undefined,
+    ),
+  );
+
+  return {
+    id: String(source.id),
+    type: String(source.type),
+    props: hasExistingProps ? existingProps : topLevelProps,
+    order: typeof source.order === "number" ? source.order : index,
+  };
+}
+
 function normalizeBlocks(blocks: PageBlock[]) {
-  return [...blocks]
+  return blocks
     .filter((block) => Boolean(block?.id && block?.type))
+    .map((block, index) => normalizeBlock(block, index))
     .sort((a, b) => a.order - b.order);
 }
 
@@ -329,6 +353,19 @@ function renderTextImageBlock(block: PageBlock) {
           )}
         </div>
       </div>
+    </section>
+  );
+}
+
+function renderTextBlock(block: PageBlock) {
+  const html = asString(block.props?.content) || asString(block.props?.text);
+
+  return (
+    <section key={block.id} className="mx-auto max-w-3xl px-4 py-12">
+      <div
+        className="prose prose-lg font-jost text-foreground max-w-none text-[#1E1810]"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     </section>
   );
 }
@@ -579,6 +616,8 @@ export async function BlockRenderer({ blocks }: BlockRendererProps) {
             return renderHowItWorksBlock(block);
           case "text-image":
             return renderTextImageBlock(block);
+          case "text":
+            return renderTextBlock(block);
           case "banner-promo":
             return renderBannerPromoBlock(block);
           case "instagram":
