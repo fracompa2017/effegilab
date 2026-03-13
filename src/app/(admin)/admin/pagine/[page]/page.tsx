@@ -299,7 +299,9 @@ function toPreviewLines(block: PageBlock) {
 }
 
 function absolutePreviewUrl(previewPath: string) {
-  const base = typeof window !== "undefined" ? window.location.origin : "";
+  const configuredBase = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? "";
+  const runtimeBase = typeof window !== "undefined" ? window.location.origin : "";
+  const base = (configuredBase || runtimeBase).replace(/\/$/, "");
   const normalizedPath = previewPath.startsWith("/") ? previewPath : `/${previewPath}`;
 
   if (!base) {
@@ -431,7 +433,7 @@ function SortableCanvasBlock({
               event.stopPropagation();
               onMoveUp();
             }}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 text-[#5C5048] hover:bg-[#F8F6F2]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 text-[#5C5048] hover:bg-[#F8F6F2]"
             aria-label="Sposta su"
           >
             <ArrowUp size={14} />
@@ -442,7 +444,7 @@ function SortableCanvasBlock({
               event.stopPropagation();
               onMoveDown();
             }}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 text-[#5C5048] hover:bg-[#F8F6F2]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 text-[#5C5048] hover:bg-[#F8F6F2]"
             aria-label="Sposta giu"
           >
             <ArrowDown size={14} />
@@ -453,7 +455,7 @@ function SortableCanvasBlock({
               event.stopPropagation();
               onSelect();
             }}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/10 text-[#5C5048] hover:bg-[#F8F6F2]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 text-[#5C5048] hover:bg-[#F8F6F2]"
             aria-label="Modifica blocco"
           >
             <Pencil size={14} />
@@ -464,7 +466,7 @@ function SortableCanvasBlock({
               event.stopPropagation();
               onDelete();
             }}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#EDC6C3] text-[#A24D49] hover:bg-[#FFF5F5]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#EDC6C3] text-[#A24D49] hover:bg-[#FFF5F5]"
             aria-label="Elimina blocco"
           >
             <Trash2 size={14} />
@@ -490,7 +492,7 @@ function SortableCanvasBlock({
 
         <button
           type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-black/10 text-[#7A6E66] hover:bg-[#F8F6F2]"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 text-[#7A6E66] hover:bg-[#F8F6F2]"
           onClick={(event) => {
             event.stopPropagation();
             onSelect();
