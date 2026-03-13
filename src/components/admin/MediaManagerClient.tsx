@@ -134,7 +134,7 @@ export function MediaManagerClient() {
     },
   });
 
-  const mediaRows = mediaQuery.data ?? [];
+  const mediaRows = useMemo(() => mediaQuery.data ?? [], [mediaQuery.data]);
 
   const filteredRows = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -281,7 +281,6 @@ export function MediaManagerClient() {
 
     for (const [index, file] of validFiles.entries()) {
       // Upload in sequenza per ridurre errori su hosting shared.
-      // eslint-disable-next-line no-await-in-loop
       await uploadFile(file, index);
     }
 
