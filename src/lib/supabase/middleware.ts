@@ -16,61 +16,66 @@ function redirectWithCookies(request: NextRequest, response: NextResponse, path:
 }
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
-  const { url, anonKey } = getSupabaseConfig();
   const pathname = request.nextUrl.pathname;
   const isAdminRoute = pathname.startsWith("/admin");
   const isAdminLoginRoute = pathname === "/admin/login";
 
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => {
-          request.cookies.set(name, value);
-        });
-
-        response = NextResponse.next({ request });
-
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   if (!isAdminRoute) {
-    return response;
+    return NextResponse.next({ request });
   }
 
-  if (!user) {
-    if (!isAdminLoginRoute) {
+  if (isAdminLoginRoute) {
+    return NextResponse.next({ request });
+  }
+
+  try {
+    let response = NextResponse.next({ request });
+    const { url, anonKey } = getSupabaseConfig();
+
+    const supabase = createServerClient(url, anonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value);
+          });
+
+          response = NextResponse.next({ request });
+
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    });
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return redirectWithCookies(request, response, "/admin/login");
     }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError) {
+      return redirectWithCookies(request, response, "/admin/login?error=db");
+    }
+
+    if (profile?.role !== "admin") {
+      return redirectWithCookies(request, response, "/admin/login?error=unauthorized");
+    }
+
     return response;
+  } catch {
+    return NextResponse.redirect(new URL("/admin/login?error=unexpected", request.url));
   }
-
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const isAdmin = !error && profile?.role === "admin";
-
-  if (!isAdmin && !isAdminLoginRoute) {
-    return redirectWithCookies(request, response, "/admin/login");
-  }
-
-  if (isAdmin && isAdminLoginRoute) {
-    return redirectWithCookies(request, response, "/admin/dashboard");
-  }
-
-  return response;
 }
