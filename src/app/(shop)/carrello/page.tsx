@@ -126,6 +126,14 @@ export default function CartPage() {
                 </div>
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="line-clamp-2 text-sm font-medium text-[#1E1810]">{item.product.name}</p>
+                  {item.customizationNotes ? (
+                    <p className="text-[11px] italic text-[#7A6F66]">
+                      ✏️ Note:{" "}
+                      {item.customizationNotes.length > 50
+                        ? `${item.customizationNotes.slice(0, 50)}...`
+                        : item.customizationNotes}
+                    </p>
+                  ) : null}
                   <p className="text-sm text-[#5C5048]">{formatPrice(item.product.price ?? 0)}</p>
                   <div className="inline-flex items-center rounded-full border border-[#D7CEC1] bg-[#F8F6F2]">
                     <button
