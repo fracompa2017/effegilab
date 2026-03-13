@@ -124,39 +124,44 @@ function toSeoForm(row?: SeoRow | null): SeoFormState {
 }
 
 async function fetchSeoManagerData(): Promise<SeoManagerData> {
-  const supabase = createClient();
+  try {
+    const supabase = createClient();
 
-  const [seoResponse, productsResponse, globalSeoResponse] = await Promise.all([
-    supabase
-      .from("seo_settings")
-      .select("page,title,description,og_image,og_title,og_description,canonical,robots,updated_at")
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("products")
-      .select("slug,name")
-      .eq("is_active", true)
-      .order("name", { ascending: true }),
-    supabase.from("settings").select("value").eq("key", "seo_global").maybeSingle(),
-  ]);
+    const [seoResponse, productsResponse, globalSeoResponse] = await Promise.all([
+      supabase
+        .from("seo_settings")
+        .select("page,title,description,og_image,og_title,og_description,canonical,robots,updated_at")
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("products")
+        .select("slug,name")
+        .eq("is_active", true)
+        .order("name", { ascending: true }),
+      supabase.from("settings").select("value").eq("key", "seo_global").maybeSingle(),
+    ]);
 
-  if (seoResponse.error) {
-    throw new Error(seoResponse.error.message);
+    if (seoResponse.error) {
+      throw new Error(seoResponse.error.message);
+    }
+
+    if (productsResponse.error) {
+      throw new Error(productsResponse.error.message);
+    }
+
+    const globalSeo = toGlobalSeo(globalSeoResponse.data?.value);
+
+    return {
+      seoRows: (seoResponse.data ?? []) as SeoRow[],
+      products: ((productsResponse.data ?? []) as Array<{ slug: string; name: string }>).map((item) => ({
+        slug: item.slug,
+        name: item.name,
+      })),
+      globalSeo,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Errore caricamento SEO manager.";
+    throw new Error(message);
   }
-
-  if (productsResponse.error) {
-    throw new Error(productsResponse.error.message);
-  }
-
-  const globalSeo = toGlobalSeo(globalSeoResponse.data?.value);
-
-  return {
-    seoRows: (seoResponse.data ?? []) as SeoRow[],
-    products: ((productsResponse.data ?? []) as Array<{ slug: string; name: string }>).map((item) => ({
-      slug: item.slug,
-      name: item.name,
-    })),
-    globalSeo,
-  };
 }
 
 function SerpPreview({ page, form, siteUrl }: { page: string; form: SeoFormState; siteUrl: string }) {
@@ -186,6 +191,8 @@ export function SeoManagerClient() {
   const [seoForm, setSeoForm] = useState<SeoFormState>(defaultSeoForm);
   const [globalForm, setGlobalForm] = useState<GlobalSeoState>(defaultGlobalSeo);
   const [toast, setToast] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoadingState, setIsLoadingState] = useState(true);
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://effegilab.vercel.app").replace(/\/$/, "");
 
@@ -194,6 +201,21 @@ export function SeoManagerClient() {
     queryFn: fetchSeoManagerData,
     refetchInterval: 30_000,
   });
+
+  useEffect(() => {
+    if (seoQuery.isLoading) {
+      setIsLoadingState(true);
+      setError(null);
+      return;
+    }
+
+    setIsLoadingState(false);
+    if (seoQuery.isError) {
+      setError(seoQuery.error instanceof Error ? seoQuery.error.message : "Errore sconosciuto.");
+      return;
+    }
+    setError(null);
+  }, [seoQuery.error, seoQuery.isError, seoQuery.isLoading]);
 
   const seoMap = useMemo(() => {
     const map = new Map<string, SeoRow>();
@@ -317,13 +339,12 @@ export function SeoManagerClient() {
     },
   });
 
-  const loadErrorMessage =
-    seoQuery.error instanceof Error ? seoQuery.error.message : "Errore sconosciuto.";
+  const loadErrorMessage = error ?? "Errore sconosciuto.";
   const isMissingSchema =
     loadErrorMessage.includes("Could not find the table") ||
     loadErrorMessage.includes("schema cache");
 
-  if (seoQuery.isLoading) {
+  if (isLoadingState) {
     return (
       <div className="space-y-4">
         <header className="space-y-1">
@@ -335,7 +356,7 @@ export function SeoManagerClient() {
     );
   }
 
-  if (seoQuery.isError || !seoQuery.data) {
+  if (error || !seoQuery.data) {
     return (
       <div className="space-y-4">
         <header className="space-y-1">
