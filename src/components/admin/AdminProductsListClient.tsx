@@ -39,6 +39,7 @@ function SortableProductRow({ product, onToggleActive, onDelete }: ProductRowPro
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: product.id,
   });
+  const imageSrc = product.images?.[0];
 
   return (
     <div
@@ -56,8 +57,22 @@ function SortableProductRow({ product, onToggleActive, onDelete }: ProductRowPro
         <GripVertical size={15} />
       </button>
 
-      <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-black/7 bg-[#F3ECE3] text-[10px] text-[#5C5048]">
-        IMG
+      <div className="h-14 w-14 overflow-hidden rounded-lg border border-black/7 bg-[#F3ECE3]">
+        {imageSrc ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageSrc}
+              alt={product.name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-[10px] text-[#5C5048]">
+            N/D
+          </div>
+        )}
       </div>
 
       <div>
@@ -423,4 +438,3 @@ export function AdminProductsListClient() {
     </div>
   );
 }
-
