@@ -318,13 +318,27 @@ export function SeoManagerClient() {
   });
 
   if (seoQuery.isLoading) {
-    return <div className="h-48 animate-pulse rounded-2xl bg-white" />;
+    return (
+      <div className="space-y-4">
+        <header className="space-y-1">
+          <h1 className="font-serif text-5xl text-[#1E1810]">SEO Manager</h1>
+          <p className="text-sm text-[#5C5048]">Caricamento impostazioni SEO in corso...</p>
+        </header>
+        <div className="h-48 animate-pulse rounded-2xl border border-black/7 bg-white" />
+      </div>
+    );
   }
 
   if (seoQuery.isError || !seoQuery.data) {
     return (
-      <div className="rounded-2xl border border-[#EDC6C3] bg-[#FDF0EF] p-4 text-sm text-[#A24D49]">
-        Errore nel caricamento SEO manager.
+      <div className="space-y-4">
+        <header className="space-y-1">
+          <h1 className="font-serif text-5xl text-[#1E1810]">SEO Manager</h1>
+          <p className="text-sm text-[#5C5048]">Impossibile caricare i dati SEO.</p>
+        </header>
+        <div className="rounded-2xl border border-[#EDC6C3] bg-[#FDF0EF] p-4 text-sm text-[#A24D49]">
+          Errore nel caricamento SEO manager.
+        </div>
       </div>
     );
   }

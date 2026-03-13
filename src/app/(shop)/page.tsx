@@ -94,17 +94,22 @@ function normalizeHomepageBlocks(blocks: unknown): PageBlock[] {
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [contentResponse, collections, productsResponse] = await Promise.all([
-    supabase
-      .from("page_content")
-      .select("page, blocks")
-      .in("page", ["homepage", "home"])
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [collections, productsResponse] = await Promise.all([
     getCollectionsServer(),
     getProductsServer({ page: 1, pageSize: 8, sort: "recenti" }),
   ]);
+
+  const loadByPage = async (pageName: string) =>
+    supabase
+      .from("page_content")
+      .select("page, blocks")
+      .eq("page", pageName)
+      .maybeSingle();
+
+  let contentResponse = await loadByPage("homepage");
+  if ((!contentResponse.data || !contentResponse.data.blocks) && !contentResponse.error) {
+    contentResponse = await loadByPage("home");
+  }
 
   const blocks = contentResponse.error ? [] : normalizeHomepageBlocks(contentResponse.data?.blocks);
   const supportedBlocks = blocks.filter((block) => supportedBlockTypes.has(block.type));

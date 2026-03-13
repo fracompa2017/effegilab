@@ -120,6 +120,7 @@ function normalizeBlocks(blocks: PageBlock[]) {
 }
 
 function renderHeroBlock(block: PageBlock) {
+  const kicker = asString(block.props?.kicker, "Artigianato Napoletano");
   const title = asString(block.props?.title, "Ogni storia d'amore merita di essere raccontata");
   const subtitle = asString(block.props?.subtitle, "Wedding stationery artigianale su misura.");
   const ctaText = asString(block.props?.ctaText, "Scopri i prodotti");
@@ -140,7 +141,7 @@ function renderHeroBlock(block: PageBlock) {
       <div className="max-w-3xl space-y-4">
         <p className="inline-flex items-center gap-2 rounded-full border border-[#D4918F] bg-white/75 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-[#5C5048]">
           <span aria-hidden>{emoji}</span>
-          Effegi Lab
+          {kicker}
         </p>
         <h1 className="font-serif text-4xl leading-tight text-[#1E1810] sm:text-5xl">{title}</h1>
         <p className="max-w-2xl text-base text-[#5C5048] sm:text-lg">{subtitle}</p>

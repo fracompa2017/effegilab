@@ -74,6 +74,7 @@ const blockLibrary: BlockTemplate[] = [
     label: "Hero",
     icon: Sparkles,
     defaults: {
+      kicker: "Artigianato Napoletano",
       title: "Ogni storia d'amore merita di essere raccontata",
       subtitle: "Wedding stationery artigianale e personalizzata.",
       ctaText: "Scopri le partecipazioni",
@@ -298,9 +299,7 @@ function toPreviewLines(block: PageBlock) {
 }
 
 function absolutePreviewUrl(previewPath: string) {
-  const configuredBase = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
-  const fallbackBase = typeof window !== "undefined" ? window.location.origin : "";
-  const base = configuredBase || fallbackBase;
+  const base = typeof window !== "undefined" ? window.location.origin : "";
   const normalizedPath = previewPath.startsWith("/") ? previewPath : `/${previewPath}`;
 
   if (!base) {
@@ -317,6 +316,38 @@ function createBlockFromTemplate(template: BlockTemplate, order: number): PageBl
     props: { ...template.defaults },
     order,
   };
+}
+
+function createDefaultBlocksForPage(pageKey: string): PageBlock[] {
+  if (pageKey !== "homepage") {
+    return [];
+  }
+
+  const defaultOrder = [
+    "hero",
+    "categories",
+    "collections",
+    "products",
+    "how-it-works",
+    "reviews",
+    "consult-banner",
+  ];
+
+  return defaultOrder
+    .map((type, index) => {
+      const template = blockLibrary.find((entry) => entry.type === type);
+      if (!template) {
+        return null;
+      }
+
+      return {
+        id: uniqueId(`preset-${template.type}`),
+        type: template.type,
+        props: { ...template.defaults },
+        order: index,
+      } satisfies PageBlock;
+    })
+    .filter(Boolean) as PageBlock[];
 }
 
 function DraggablePaletteItem({
@@ -544,10 +575,16 @@ export default function AdminPageBuilderPage() {
       }
 
       const loadedBlocks = normalizeBlocks(response.data?.blocks);
-      setBlocks(loadedBlocks);
-      setSelectedBlockId(loadedBlocks[0]?.id ?? null);
+      const effectiveBlocks = loadedBlocks.length ? loadedBlocks : createDefaultBlocksForPage(page);
+
+      if (!loadedBlocks.length && effectiveBlocks.length) {
+        showToast("Caricati blocchi base. Premi Pubblica per applicarli al sito.", "info");
+      }
+
+      setBlocks(effectiveBlocks);
+      setSelectedBlockId(effectiveBlocks[0]?.id ?? null);
       setHistory([]);
-      lastSavedSnapshotRef.current = JSON.stringify(loadedBlocks);
+      lastSavedSnapshotRef.current = JSON.stringify(effectiveBlocks);
       initializedRef.current = true;
       setIsLoading(false);
     }

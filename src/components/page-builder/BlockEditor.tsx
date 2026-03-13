@@ -193,6 +193,14 @@ export function BlockEditor({ block, onChange }: BlockEditorProps) {
     return (
       <>
         <div className="space-y-1">
+          <FieldLabel>Kicker / Badge</FieldLabel>
+          <TextInput
+            value={asString(props.kicker)}
+            onChange={(event) => setValue("kicker", event.target.value)}
+            placeholder="Artigianato Napoletano"
+          />
+        </div>
+        <div className="space-y-1">
           <FieldLabel>Titolo</FieldLabel>
           <TextInput
             value={asString(props.title)}
