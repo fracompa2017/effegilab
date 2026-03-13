@@ -317,6 +317,12 @@ export function SeoManagerClient() {
     },
   });
 
+  const loadErrorMessage =
+    seoQuery.error instanceof Error ? seoQuery.error.message : "Errore sconosciuto.";
+  const isMissingSchema =
+    loadErrorMessage.includes("Could not find the table") ||
+    loadErrorMessage.includes("schema cache");
+
   if (seoQuery.isLoading) {
     return (
       <div className="space-y-4">
@@ -336,8 +342,15 @@ export function SeoManagerClient() {
           <h1 className="font-serif text-5xl text-[#1E1810]">SEO Manager</h1>
           <p className="text-sm text-[#5C5048]">Impossibile caricare i dati SEO.</p>
         </header>
-        <div className="rounded-2xl border border-[#EDC6C3] bg-[#FDF0EF] p-4 text-sm text-[#A24D49]">
-          Errore nel caricamento SEO manager.
+        <div className="space-y-2 rounded-2xl border border-[#EDC6C3] bg-[#FDF0EF] p-4 text-sm text-[#A24D49]">
+          <p>Errore nel caricamento SEO manager.</p>
+          <p className="break-words text-xs">{loadErrorMessage}</p>
+          {isMissingSchema ? (
+            <p className="text-xs text-[#7A3A37]">
+              Schema mancante su Supabase: esegui la migration admin core
+              (<code>supabase/migrations/20260313_000007_admin_core.sql</code>).
+            </p>
+          ) : null}
         </div>
       </div>
     );

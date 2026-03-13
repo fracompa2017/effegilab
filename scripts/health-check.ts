@@ -21,6 +21,10 @@ const requiredTables = [
   "media",
   "page_content",
   "coupons",
+  "seo_settings",
+  "integrations",
+  "settings",
+  "api_keys",
 ] as const;
 
 function loadEnvLocal() {
@@ -97,7 +101,7 @@ async function run() {
 
   const tableChecks = await Promise.all(
     requiredTables.map(async (table) => {
-      const { error } = await supabase.from(table).select("id", { head: true, count: "exact" });
+      const { error } = await supabase.from(table).select("*").limit(1);
       return {
         table,
         ok: !error,

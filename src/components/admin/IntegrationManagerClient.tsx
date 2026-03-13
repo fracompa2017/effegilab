@@ -98,6 +98,14 @@ export function IntegrationManagerClient() {
     refetchInterval: 30_000,
   });
 
+  const loadErrorMessage =
+    integrationsQuery.error instanceof Error
+      ? integrationsQuery.error.message
+      : "Errore sconosciuto.";
+  const isMissingSchema =
+    loadErrorMessage.includes("Could not find the table") ||
+    loadErrorMessage.includes("schema cache");
+
   const integrationMap = useMemo(() => {
     return new Map((integrationsQuery.data ?? []).map((row) => [row.name, row]));
   }, [integrationsQuery.data]);
@@ -178,8 +186,15 @@ export function IntegrationManagerClient() {
           <h1 className="font-serif text-5xl text-[#1E1810]">Integrazioni</h1>
           <p className="text-sm text-[#5C5048]">Impossibile caricare i dati integrazione.</p>
         </header>
-        <div className="rounded-2xl border border-[#EDC6C3] bg-[#FDF0EF] p-4 text-sm text-[#A24D49]">
-          Errore nel caricamento integrazioni.
+        <div className="space-y-2 rounded-2xl border border-[#EDC6C3] bg-[#FDF0EF] p-4 text-sm text-[#A24D49]">
+          <p>Errore nel caricamento integrazioni.</p>
+          <p className="break-words text-xs">{loadErrorMessage}</p>
+          {isMissingSchema ? (
+            <p className="text-xs text-[#7A3A37]">
+              Schema mancante su Supabase: esegui la migration admin core
+              (<code>supabase/migrations/20260313_000007_admin_core.sql</code>).
+            </p>
+          ) : null}
         </div>
       </div>
     );
