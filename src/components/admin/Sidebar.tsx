@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Edit3,
@@ -51,6 +51,7 @@ export function Sidebar({ currentPath }: SidebarProps) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [adminUser, setAdminUser] = useState<{ email: string; name: string } | null>(null);
 
   const { data: pendingOrders = 0 } = useQuery({
     queryKey: ["admin-pending-orders-count"],
@@ -75,6 +76,53 @@ export function Sidebar({ currentPath }: SidebarProps) {
     router.refresh();
   }
 
+  useEffect(() => {
+    let mounted = true;
+
+    const syncAdminUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!mounted || !user) {
+        return;
+      }
+
+      setAdminUser({
+        email: user.email ?? "",
+        name:
+          typeof user.user_metadata?.name === "string" && user.user_metadata.name.trim().length > 0
+            ? user.user_metadata.name
+            : user.email ?? "Admin",
+      });
+    };
+
+    void syncAdminUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user;
+      if (!user) {
+        setAdminUser(null);
+        return;
+      }
+
+      setAdminUser({
+        email: user.email ?? "",
+        name:
+          typeof user.user_metadata?.name === "string" && user.user_metadata.name.trim().length > 0
+            ? user.user_metadata.name
+            : user.email ?? "Admin",
+      });
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
   function isActive(href: string) {
     return currentPath === href || currentPath.startsWith(`${href}/`);
   }
@@ -83,7 +131,7 @@ export function Sidebar({ currentPath }: SidebarProps) {
     <>
       <button
         type="button"
-        className="fixed left-4 top-4 z-50 inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-[#5C5048] shadow-sm md:hidden"
+        className="fixed left-4 top-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full border border-black/10 bg-white text-[#5C5048] shadow-sm md:hidden"
         onClick={() => setMobileOpen((prev) => !prev)}
         aria-label="Apri menu admin"
       >
@@ -128,7 +176,7 @@ export function Sidebar({ currentPath }: SidebarProps) {
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex min-h-12 min-w-12 items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                   active
                     ? "bg-white text-[#1E1810] shadow-sm"
                     : "text-[#5C5048] hover:bg-white/80",
@@ -151,17 +199,17 @@ export function Sidebar({ currentPath }: SidebarProps) {
         <div className="mt-4 rounded-2xl border border-black/7 bg-white p-3">
           <div className="mb-3 flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#EFE8DB] text-sm font-semibold text-[#5C5048]">
-              EG
+              {(adminUser?.name ?? "Admin").charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="text-sm font-medium text-[#1E1810]">Effegi Admin</p>
-              <p className="text-xs text-[#9C9088]">admin@effegi-lab.it</p>
+              <p className="text-sm font-medium text-[#1E1810]">{adminUser?.name ?? "Admin"}</p>
+              <p className="text-xs text-[#9C9088]">{adminUser?.email ?? "admin@effegi-lab.it"}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-medium text-[#5C5048] hover:bg-[#F8F6F2]"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-full border border-black/10 px-3 py-2 text-xs font-medium text-[#5C5048] hover:bg-[#F8F6F2]"
           >
             <LogOut size={14} />
             Logout
