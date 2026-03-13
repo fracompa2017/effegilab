@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -98,23 +98,8 @@ export function IntegrationManagerClient() {
     refetchInterval: 30_000,
   });
 
-  useEffect(() => {
-    const rows = integrationsQuery.data ?? [];
-    if (!rows.length) {
-      return;
-    }
-
-    const nextDrafts: Record<string, IntegrationState> = {};
-
-    for (const definition of integrationDefinitions) {
-      const row = rows.find((entry) => entry.name === definition.name);
-      nextDrafts[definition.name] = {
-        enabled: row?.enabled ?? false,
-        value: row?.config?.[definition.field] ?? "",
-      };
-    }
-
-    setDrafts(nextDrafts);
+  const integrationMap = useMemo(() => {
+    return new Map((integrationsQuery.data ?? []).map((row) => [row.name, row]));
   }, [integrationsQuery.data]);
 
   function showToast(message: string) {
@@ -124,9 +109,19 @@ export function IntegrationManagerClient() {
     }, 2400);
   }
 
+  function resolveState(definition: IntegrationDefinition): IntegrationState {
+    const saved = integrationMap.get(definition.name);
+    const draft = drafts[definition.name];
+
+    return {
+      enabled: draft?.enabled ?? saved?.enabled ?? false,
+      value: draft?.value ?? saved?.config?.[definition.field] ?? "",
+    };
+  }
+
   const saveMutation = useMutation({
     mutationFn: async (definition: IntegrationDefinition) => {
-      const draft = drafts[definition.name] ?? { enabled: false, value: "" };
+      const draft = resolveState(definition);
       const payload = {
         name: definition.name,
         enabled: draft.enabled,
@@ -151,11 +146,14 @@ export function IntegrationManagerClient() {
   });
 
   function updateDraft(name: IntegrationName, next: Partial<IntegrationState>) {
+    const definition = integrationDefinitions.find((item) => item.name === name);
+    const fallback = definition ? resolveState(definition) : { enabled: false, value: "" };
+
     setDrafts((prev) => ({
       ...prev,
       [name]: {
-        enabled: prev[name]?.enabled ?? false,
-        value: prev[name]?.value ?? "",
+        enabled: prev[name]?.enabled ?? fallback.enabled,
+        value: prev[name]?.value ?? fallback.value,
         ...next,
       },
     }));
@@ -188,7 +186,7 @@ export function IntegrationManagerClient() {
 
       <section className="grid gap-4 lg:grid-cols-2">
         {integrationDefinitions.map((definition) => {
-          const draft = drafts[definition.name] ?? { enabled: false, value: "" };
+          const draft = resolveState(definition);
           const isSaving = saveMutation.isPending && saveMutation.variables?.name === definition.name;
 
           return (
