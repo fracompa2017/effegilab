@@ -1,5 +1,56 @@
 import { createHash } from "crypto";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
+
+import { getSupabaseConfig } from "@/lib/supabase/shared";
+
+type CloudinaryUploadResponse = {
+  secure_url?: string;
+  public_id?: string;
+  original_filename?: string;
+  width?: number;
+  height?: number;
+  bytes?: number;
+  format?: string;
+};
+
+async function getCurrentUserId() {
+  const cookieStore = await cookies();
+  const { url, anonKey } = getSupabaseConfig();
+
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll() {},
+    },
+  });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return user?.id ?? null;
+}
+
+function getServiceRoleClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null;
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
 
 export async function POST(request: Request) {
   try {
@@ -51,8 +102,37 @@ export async function POST(request: Request) {
       );
     }
 
-    const payload = (await cloudinaryResponse.json()) as { secure_url?: string };
-    return NextResponse.json({ secureUrl: payload.secure_url });
+    const payload = (await cloudinaryResponse.json()) as CloudinaryUploadResponse;
+
+    const secureUrl = payload.secure_url;
+    if (!secureUrl) {
+      return NextResponse.json(
+        { error: "URL immagine non disponibile dopo l'upload." },
+        { status: 500 },
+      );
+    }
+
+    const serviceClient = getServiceRoleClient();
+    if (serviceClient) {
+      const uploadedBy = await getCurrentUserId();
+
+      const { error: insertError } = await serviceClient.from("media").insert({
+        url: secureUrl,
+        public_id: payload.public_id ?? null,
+        filename: payload.original_filename ? `${payload.original_filename}.${payload.format ?? ""}` : file.name,
+        width: payload.width ?? null,
+        height: payload.height ?? null,
+        size: payload.bytes ?? null,
+        format: payload.format ?? null,
+        uploaded_by: uploadedBy,
+      });
+
+      if (insertError) {
+        console.error("Errore salvataggio metadata media:", insertError.message);
+      }
+    }
+
+    return NextResponse.json({ secureUrl });
   } catch (error) {
     return NextResponse.json(
       {
@@ -62,4 +142,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
