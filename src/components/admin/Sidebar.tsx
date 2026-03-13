@@ -8,12 +8,12 @@ import {
   Edit3,
   FolderTree,
   Grid2x2,
+  Image,
   ListTree,
   LogOut,
   Menu,
   Package,
   Settings,
-  Sparkles,
   Tag,
   X,
 } from "lucide-react";
@@ -37,9 +37,9 @@ const navItems: NavItem[] = [
   { href: "/admin/ordini", label: "Ordini", icon: Package, withPendingBadge: true },
   { href: "/admin/prodotti", label: "Prodotti", icon: ListTree },
   { href: "/admin/categorie", label: "Categorie", icon: FolderTree },
-  { href: "/admin/collezioni", label: "Collezioni", icon: Sparkles },
-  { href: "/admin/pagine", label: "Pagine", icon: Edit3 },
+  { href: "/admin/media", label: "Media", icon: Image },
   { href: "/admin/coupon", label: "Coupon", icon: Tag },
+  { href: "/admin/pagine", label: "Pagine", icon: Edit3 },
   { href: "/admin/impostazioni", label: "Impostazioni", icon: Settings },
 ];
 
@@ -167,4 +167,3 @@ export function Sidebar({ currentPath }: SidebarProps) {
     </>
   );
 }
-
