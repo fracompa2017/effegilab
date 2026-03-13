@@ -260,6 +260,56 @@ function toPreviewText(block: PageBlock) {
   return title || "Blocco configurabile";
 }
 
+function toPreviewLines(block: PageBlock) {
+  const props = block.props ?? {};
+  const lines: string[] = [];
+
+  if (block.type === "spacer") {
+    return [`Spazio verticale: ${asNumber(props.height, 48)}px`];
+  }
+
+  const title = asString(props.title);
+  const subtitle = asString(props.subtitle);
+  const ctaText = asString(props.ctaText);
+  const text = asString(props.text);
+  const subtext = asString(props.subtext);
+
+  if (title) {
+    lines.push(`"${title}"`);
+  }
+
+  if (subtitle) {
+    lines.push(subtitle);
+  } else if (!title && text) {
+    lines.push(text);
+  } else if (subtext) {
+    lines.push(subtext);
+  }
+
+  if (ctaText) {
+    lines.push(`CTA: "${ctaText}"`);
+  }
+
+  if (!lines.length) {
+    lines.push("Blocco configurabile");
+  }
+
+  return lines.slice(0, 2);
+}
+
+function absolutePreviewUrl(previewPath: string) {
+  const configuredBase = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  const fallbackBase = typeof window !== "undefined" ? window.location.origin : "";
+  const base = configuredBase || fallbackBase;
+  const normalizedPath = previewPath.startsWith("/") ? previewPath : `/${previewPath}`;
+
+  if (!base) {
+    return normalizedPath;
+  }
+
+  return `${base}${normalizedPath}`;
+}
+
 function createBlockFromTemplate(template: BlockTemplate, order: number): PageBlock {
   return {
     id: uniqueId(template.type),
@@ -318,6 +368,10 @@ function SortableCanvasBlock({
   onMoveDown: () => void;
   onDelete: () => void;
 }) {
+  const template = blockLibrary.find((item) => item.type === block.type);
+  const Icon = template?.icon ?? LayoutTemplate;
+  const blockLabel = template?.label ?? block.type;
+  const previewLines = toPreviewLines(block);
   const id = sortableId(block.id);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
@@ -388,11 +442,19 @@ function SortableCanvasBlock({
       ) : null}
 
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9C9088]">
-            {block.type}
-          </p>
-          <p className="text-sm font-medium text-[#1E1810]">{toPreviewText(block)}</p>
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#F4EEE5] text-[#6E6158]">
+            <Icon size={20} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9C9088]">
+              {blockLabel}
+            </p>
+            <p className="truncate text-sm font-semibold text-[#1E1810]">{previewLines[0] ?? toPreviewText(block)}</p>
+            {previewLines[1] ? (
+              <p className="truncate text-xs text-[#6F635A]">{previewLines[1]}</p>
+            ) : null}
+          </div>
         </div>
 
         <button
@@ -459,25 +521,29 @@ export default function AdminPageBuilderPage() {
 
     async function load() {
       setIsLoading(true);
-      const possiblePages = page === "homepage" ? ["homepage", "home"] : [page];
-      const { data, error } = await supabase
-        .from("page_content")
-        .select("page, blocks")
-        .in("page", possiblePages)
-        .limit(1)
-        .order("updated_at", { ascending: false });
+      const tryLoadByPage = async (pageName: string) =>
+        supabase
+          .from("page_content")
+          .select("page, blocks")
+          .eq("page", pageName)
+          .maybeSingle();
+
+      let response = await tryLoadByPage(page);
+      if ((!response.data || !response.data.blocks) && page === "homepage") {
+        response = await tryLoadByPage("home");
+      }
 
       if (!active) {
         return;
       }
 
-      if (error) {
+      if (response.error) {
         showToast("Errore nel caricamento dei blocchi.", "error");
         setIsLoading(false);
         return;
       }
 
-      const loadedBlocks = normalizeBlocks(data?.[0]?.blocks);
+      const loadedBlocks = normalizeBlocks(response.data?.blocks);
       setBlocks(loadedBlocks);
       setSelectedBlockId(loadedBlocks[0]?.id ?? null);
       setHistory([]);
@@ -636,6 +702,20 @@ export default function AdminPageBuilderPage() {
       return;
     }
 
+    if (mode === "publish" && pageMeta) {
+      try {
+        await fetch("/api/admin/revalidate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ path: pageMeta.previewPath }),
+        });
+      } catch {
+        showToast("Pubblicato, ma revalidate non riuscita.", "info");
+      }
+    }
+
     lastSavedSnapshotRef.current = snapshot;
     showToast(mode === "publish" ? "Pubblicato!" : "Salvato automaticamente", "success");
   }
@@ -683,7 +763,7 @@ export default function AdminPageBuilderPage() {
     if (!pageMeta) {
       return;
     }
-    window.open(pageMeta.previewPath, "_blank", "noopener,noreferrer");
+    window.open(absolutePreviewUrl(pageMeta.previewPath), "_blank", "noopener,noreferrer");
   }
 
   if (page && !pageMeta) {
