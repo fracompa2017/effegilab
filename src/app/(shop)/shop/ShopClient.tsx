@@ -212,7 +212,7 @@ export function ShopClient({
                   page: "1",
                 })
               }
-              className="h-11 w-full rounded-full border border-[#E8DED2] bg-white px-4 text-sm outline-none focus:border-[#D4918F]"
+              className="h-11 w-full rounded-full border border-[#E8DED2] bg-white px-4 text-[16px] outline-none focus:border-[#D4918F]"
             >
               <option value="">Tutte</option>
               {categories.map((category) => (
@@ -233,7 +233,7 @@ export function ShopClient({
                   page: "1",
                 })
               }
-              className="h-11 w-full rounded-full border border-[#E8DED2] bg-white px-4 text-sm outline-none focus:border-[#D4918F]"
+              className="h-11 w-full rounded-full border border-[#E8DED2] bg-white px-4 text-[16px] outline-none focus:border-[#D4918F]"
             >
               <option value="">Tutte</option>
               {collections.map((collection) => (
@@ -288,7 +288,7 @@ export function ShopClient({
                   page: "1",
                 })
               }
-              className="h-11 w-full rounded-full border border-[#E8DED2] bg-white px-4 text-sm outline-none focus:border-[#D4918F]"
+              className="h-11 w-full rounded-full border border-[#E8DED2] bg-white px-4 text-[16px] outline-none focus:border-[#D4918F]"
             >
               <option value="recenti">Più recenti</option>
               <option value="prezzo-asc">Prezzo crescente</option>
@@ -315,14 +315,16 @@ export function ShopClient({
         </div>
 
         {productsQuery.isLoading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="space-y-2">
-                <div className="aspect-[4/5] animate-pulse rounded-xl bg-[#EDE7DD]" />
-                <div className="h-4 w-3/4 animate-pulse rounded bg-[#EDE7DD]" />
-                <div className="h-4 w-1/2 animate-pulse rounded bg-[#EDE7DD]" />
-              </div>
-            ))}
+          <div className="mx-auto w-full max-w-7xl px-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="space-y-2">
+                  <div className="aspect-[4/5] animate-pulse rounded-xl bg-[#EDE7DD]" />
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-[#EDE7DD]" />
+                  <div className="h-4 w-1/2 animate-pulse rounded bg-[#EDE7DD]" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : result.products.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#D7CEC1] bg-white p-8 text-center">
@@ -330,10 +332,12 @@ export function ShopClient({
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {(mobileProducts.length > result.products.length ? mobileProducts : result.products).map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+            <div className="mx-auto w-full max-w-7xl px-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {(mobileProducts.length > result.products.length ? mobileProducts : result.products).map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2 md:hidden">
