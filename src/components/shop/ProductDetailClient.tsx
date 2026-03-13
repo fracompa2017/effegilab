@@ -16,8 +16,6 @@ type ProductDetailClientProps = {
   relatedProducts: Product[];
 };
 
-const minPieces = 30;
-
 const reviews = [
   {
     author: "Maria G.",
@@ -25,15 +23,13 @@ const reviews = [
   },
   {
     author: "Claudia R.",
-    text: "Lavoro artigianale preciso e confezione curata. Il risultato finale era ancora piu bello dal vivo.",
+    text: "Lavoro artigianale preciso e confezione curata. Il risultato finale era ancora più bello dal vivo.",
   },
   {
     author: "Valentina M.",
     text: "Servizio impeccabile e tempi rispettati. Consigliatissimo per chi vuole qualcosa di unico.",
   },
 ];
-
-const formatOptions = ["30 pezzi", "50 pezzi", "100 pezzi"];
 
 function normalizeImages(images: string[]) {
   if (!images.length) {
@@ -43,22 +39,40 @@ function normalizeImages(images: string[]) {
   return images;
 }
 
+function clampQuantity(value: number) {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.max(1, Math.min(9999, Math.round(value)));
+}
+
 export function ProductDetailClient({ product, relatedProducts }: ProductDetailClientProps) {
   const addItem = useCartStore((state) => state.addItem);
   const toggleCart = useCartStore((state) => state.toggleCart);
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [quantity, setQuantity] = useState(minPieces);
-  const [selectedPack, setSelectedPack] = useState(formatOptions[0]);
+  const [quantity, setQuantity] = useState(1);
+  const [customizationNotes, setCustomizationNotes] = useState("");
   const [openCustomize, setOpenCustomize] = useState(true);
   const [openDescription, setOpenDescription] = useState(false);
   const [hideStickyCta, setHideStickyCta] = useState(false);
   const [wishlist, setWishlist] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const ctaSectionRef = useRef<HTMLDivElement | null>(null);
   const gallery = useMemo(() => normalizeImages(product.images ?? []), [product.images]);
   const unitPrice = product.price_min ?? product.price ?? 0;
   const estimatedTotal = unitPrice * quantity;
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setToastMessage(null), 3200);
+    return () => window.clearTimeout(timer);
+  }, [toastMessage]);
 
   useEffect(() => {
     const target = ctaSectionRef.current;
@@ -81,15 +95,21 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
     addItem({
       product,
       quantity,
-      selected_options: {
-        formato: selectedPack,
-      },
+      selected_options: {},
+      customizationNotes: customizationNotes.trim() || undefined,
     });
     toggleCart(true);
+    setToastMessage("✅ Aggiunto! Procedi al checkout per completare l'ordine");
   }
 
   return (
     <div className="space-y-8 pb-24 md:pb-6">
+      {toastMessage ? (
+        <div className="fixed left-1/2 top-20 z-[75] w-[92%] max-w-md -translate-x-1/2 rounded-xl border border-[#CFE4D4] bg-[#EFF8F1] px-4 py-3 text-sm text-[#2F6A42] shadow-md">
+          {toastMessage}
+        </div>
+      ) : null}
+
       <article className="grid gap-7 lg:grid-cols-[55%_45%]">
         <section className="-mx-4 space-y-3 sm:mx-0">
           <div className="relative aspect-square overflow-hidden bg-[#F3ECE3] sm:rounded-2xl">
@@ -161,7 +181,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
               4.9 (23 recensioni)
             </button>
             <p className="text-[22px] font-bold text-[#1E1810]">da {formatPrice(unitPrice)}</p>
-            <p className="text-[12px] text-[#7A6F66]">per pezzo, min. {minPieces} pz</p>
+            <p className="text-[12px] text-[#7A6F66]">per pezzo</p>
           </div>
 
           <div className="border-t border-[#E8DED2] pt-4">
@@ -176,40 +196,39 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
 
             {openCustomize ? (
               <div className="space-y-4 px-1 pb-1 pt-4">
-                <div>
-                  <p className="text-sm font-medium text-[#1E1810]">Step 1: Scegli la quantita</p>
-                  <div className="mt-2 flex items-center gap-3">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-[#1E1810]">Quantità</p>
+                  <div className="flex items-center gap-2">
                     <div className="inline-flex items-center rounded-full border border-[#D7CEC1] bg-white">
                       <button
                         type="button"
-                        onClick={() => setQuantity((current) => Math.max(minPieces, current - 1))}
+                        onClick={() => setQuantity((current) => clampQuantity(current - 1))}
                         className="inline-flex h-12 w-12 items-center justify-center text-[#5C5048]"
-                        aria-label="Riduci quantita"
+                        aria-label="Riduci quantità"
                       >
                         <Minus size={16} />
                       </button>
                       <span className="min-w-10 text-center text-sm font-semibold">{quantity}</span>
                       <button
                         type="button"
-                        onClick={() => setQuantity((current) => current + 1)}
+                        onClick={() => setQuantity((current) => clampQuantity(current + 1))}
                         className="inline-flex h-12 w-12 items-center justify-center text-[#5C5048]"
-                        aria-label="Aumenta quantita"
+                        aria-label="Aumenta quantità"
                       >
                         <Plus size={16} />
                       </button>
                     </div>
-                    <select
-                      value={selectedPack}
-                      onChange={(event) => setSelectedPack(event.target.value)}
-                      className="h-12 rounded-full border border-[#D7CEC1] bg-white px-4 text-sm text-[#1E1810] outline-none"
-                    >
-                      {formatOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      max={9999}
+                      placeholder="es. 50"
+                      value={quantity}
+                      onChange={(event) => setQuantity(clampQuantity(Number(event.target.value)))}
+                      className="h-12 w-full rounded-full border border-[#D7CEC1] px-4 text-[16px] outline-none focus:border-[#D4918F]"
+                    />
                   </div>
+                  <p className="text-xs text-[#6F645A]">Puoi ordinare qualsiasi quantità</p>
                 </div>
 
                 <div className="space-y-1 text-[13px] text-[#5C5048]">
@@ -220,15 +239,46 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             ) : null}
           </div>
 
+          <div className="rounded-xl border border-[#E8E0D8] bg-[#FBF8F5] p-4">
+            <p className="text-[14px] font-semibold text-[#1E1810]">✏️ Personalizzazione</p>
+            <p className="mt-1 text-[12px] text-[#6F645A]">
+              Inserisci le tue preferenze — ti contatteremo per la bozza grafica
+            </p>
+            <textarea
+              value={customizationNotes}
+              onChange={(event) => setCustomizationNotes(event.target.value.slice(0, 1000))}
+              rows={4}
+              maxLength={1000}
+              placeholder="Es: Nomi degli sposi, data e luogo del matrimonio, colore preferito, font, eventuali note speciali..."
+              className="mt-3 w-full resize-none rounded-xl border border-[#E0D8D0] bg-white px-3 py-2 text-[16px] outline-none focus:border-[#D4918F]"
+            />
+            <p className="mt-1 text-right text-[11px] italic text-[#8A7E74]">{customizationNotes.length}/1000</p>
+            <p className="mt-2 text-[12px] text-[#6F645A]">
+              💡 Riceverai la bozza grafica entro 48h dalla conferma dell&apos;ordine. Incluse fino a 3 revisioni gratuite.
+            </p>
+          </div>
+
           <div ref={ctaSectionRef} className="space-y-3 rounded-2xl border border-[#E8DED2] bg-white p-4">
             <button
               type="button"
               onClick={handleAddToCart}
               className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#D4918F] px-6 text-sm font-medium text-white"
             >
-              Personalizza
+              Aggiungi al Carrello
             </button>
             <p className="text-xs text-[#6F645A]">Totale stimato: {formatPrice(estimatedTotal)}</p>
+            <div className="flex flex-col gap-1 text-xs text-[#5C5048]">
+              <Link href="https://wa.me/393333333333" target="_blank" className="underline underline-offset-2">
+                💬 Hai dubbi? Scrivici su WhatsApp
+              </Link>
+              <Link
+                href="https://effegi-lab2.reservio.com/booking"
+                target="_blank"
+                className="underline underline-offset-2"
+              >
+                📅 Prenota consulenza gratuita
+              </Link>
+            </div>
           </div>
 
           <div className="rounded-2xl border border-[#E8DED2]">
@@ -294,7 +344,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
             onClick={handleAddToCart}
             className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-[#D4918F] px-5 text-sm font-medium text-white"
           >
-            Personalizza
+            Aggiungi al Carrello
           </button>
         </div>
       </div>
