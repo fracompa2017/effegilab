@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
 
   const [form, setForm] = useState({
@@ -19,6 +20,21 @@ export default function AdminLoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const errorParam = searchParams.get("error");
+
+  useEffect(() => {
+    const errorMessages: Record<string, string> = {
+      db: "Errore database. Riprova.",
+      unauthorized: "Account non autorizzato per il pannello admin.",
+      unexpected: "Errore imprevisto. Riprova.",
+    };
+
+    if (!errorParam) {
+      return;
+    }
+
+    setErrorMessage(errorMessages[errorParam] ?? "Accesso admin non riuscito.");
+  }, [errorParam]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -26,14 +42,27 @@ export default function AdminLoginPage() {
     setIsLoading(true);
     setErrorMessage(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,
     });
 
-    if (error) {
+    if (error || !data.user) {
       setIsLoading(false);
       setErrorMessage("Credenziali non valide. Controlla email e password.");
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profileError || profile?.role !== "admin") {
+      await supabase.auth.signOut();
+      setIsLoading(false);
+      setErrorMessage("Non hai i permessi per accedere al pannello admin.");
       return;
     }
 
@@ -94,4 +123,3 @@ export default function AdminLoginPage() {
     </div>
   );
 }
-
