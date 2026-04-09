@@ -64,11 +64,17 @@ export async function generateMetadata({ params }: CollectionPageProps): Promise
 }
 
 export async function generateStaticParams() {
-  const collections = await getCollectionsServer();
+  try {
+    const collections = await getCollectionsServer();
 
-  return collections.map((collection) => ({
-    slug: collection.slug,
-  }));
+    return collections.map((collection) => ({
+      slug: collection.slug,
+    }));
+  } catch {
+    // If Supabase is temporarily unreachable during the Vercel build,
+    // keep the route dynamic instead of failing the whole deployment.
+    return [];
+  }
 }
 
 export default async function CollectionPage({ params }: CollectionPageProps) {
